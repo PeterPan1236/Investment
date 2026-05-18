@@ -22,6 +22,8 @@ npm start
 # then open http://localhost:3000
 ```
 
+Windows PowerShell note: if `npm` is blocked by the local execution policy, use `npm.cmd start` or run `node server.js` directly.
+
 Notes
 - The project includes a local dataset at `data/taiwan_stocks.json`.
 - The server proxies Yahoo Finance for chart and news data.
