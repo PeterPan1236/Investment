@@ -6,6 +6,7 @@ const itemSummary = document.getElementById('itemSummary');
 const newsList = document.getElementById('newsList');
 const timeTabs = document.getElementById('timeTabs');
 const chartContainer = document.getElementById('chart');
+const strategyPanel = document.getElementById('strategyPanel');
 
 const HISTORY_KEY = 'investment_search_history';
 let searchHistory = [];
@@ -13,6 +14,7 @@ let selectedItem = null;
 let currentInterval = '1d';
 let currentRange = '1mo';
 let chartInstance = null;
+let searchRequestId = 0;
 
 const defaultState = {
   name: '',
@@ -44,6 +46,25 @@ function saveHistory(query) {
   renderHistory();
 }
 
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[char]));
+}
+
+function safeExternalUrl(url) {
+  try {
+    const parsed = new URL(url, window.location.href);
+    return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '#';
+  } catch (error) {
+    return '#';
+  }
+}
+
 function renderHistory() {
   historyList.innerHTML = '';
   if (!searchHistory.length) {
@@ -63,12 +84,29 @@ function renderHistory() {
   });
 }
 
-async function performSearch(query) {
+async function performSearch(query, { save = true } = {}) {
   const trimmed = query.trim();
-  if (!trimmed) return;
-  saveHistory(trimmed);
-  const response = await fetch(`/api/search?query=${encodeURIComponent(trimmed)}`);
-  const items = await response.json();
+  if (!trimmed) {
+    searchRequestId += 1;
+    suggestionList.innerHTML = '';
+    return;
+  }
+
+  if (save) saveHistory(trimmed);
+
+  const requestId = ++searchRequestId;
+  let items = [];
+  try {
+    const response = await fetch(`/api/search?query=${encodeURIComponent(trimmed)}`);
+    if (!response.ok) throw new Error(`Search failed with ${response.status}`);
+    items = await response.json();
+  } catch (error) {
+    if (requestId !== searchRequestId) return;
+    suggestionList.innerHTML = '<div class="suggestion-item">搜尋服務暫時無法使用，請稍後再試。</div>';
+    return;
+  }
+
+  if (requestId !== searchRequestId) return;
   suggestionList.innerHTML = '';
 
   if (!items.length) {
@@ -80,10 +118,10 @@ async function performSearch(query) {
     const row = document.createElement('div');
     row.className = 'suggestion-item';
     row.innerHTML = `
-      <div class="symbol">${item.symbol}</div>
+      <div class="symbol">${escapeHTML(item.symbol)}</div>
       <div class="info">
-        <div><strong>${item.name}</strong> ${item.english ? `(${item.english})` : ''}</div>
-        <div class="muted">${item.type === 'crypto' ? 'Crypto' : item.market || 'Taiwan Stock'}</div>
+        <div><strong>${escapeHTML(item.name)}</strong> ${item.english ? `(${escapeHTML(item.english)})` : ''}</div>
+        <div class="muted">${escapeHTML(item.type === 'crypto' ? 'Crypto' : item.market || 'Taiwan Stock')}</div>
       </div>
     `;
     row.addEventListener('click', () => {
@@ -94,36 +132,58 @@ async function performSearch(query) {
 }
 
 function formatNumber(value, decimals = 2) {
-  if (value == null || Number.isNaN(value)) return '--';
-  return Number(value).toLocaleString('en-US', {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '--';
+  return number.toLocaleString('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals
   });
 }
 
+function formatPercent(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '--';
+  return `${number >= 0 ? '+' : ''}${number.toFixed(2)}%`;
+}
+
+function average(values) {
+  const finiteValues = values.map(Number).filter(Number.isFinite);
+  if (!finiteValues.length) return null;
+  return finiteValues.reduce((sum, value) => sum + value, 0) / finiteValues.length;
+}
+
 function buildSummary(data = defaultState) {
+  const displayName = escapeHTML(data.name || '尚未選擇標的');
+  const symbol = escapeHTML(data.symbol || '--');
+  const market = escapeHTML(data.market || (data.type === 'crypto' ? 'Crypto' : '--'));
+  const price = escapeHTML(data.price);
+  const change = escapeHTML(data.change);
+  const percent = escapeHTML(data.percent);
+  const volume = escapeHTML(data.volume);
+  const trend = escapeHTML(data.trend);
+
   itemSummary.innerHTML = `
-    <div class="summary-title">${data.name || '尚未選擇標的'}</div>
+    <div class="summary-title">${displayName}</div>
     <div class="summary-row">
       <div class="summary-card">
         <strong>代號 / 市場</strong>
-        <div class="value">${data.symbol || '--'} / ${data.market || (data.type === 'crypto' ? 'Crypto' : '--')}</div>
+        <div class="value">${symbol} / ${market}</div>
       </div>
       <div class="summary-card">
         <strong>最新價格</strong>
-        <div class="value">${data.price}</div>
+        <div class="value">${price}</div>
       </div>
       <div class="summary-card">
         <strong>漲跌幅</strong>
-        <div class="value">${data.change} (${data.percent})</div>
+        <div class="value">${change} (${percent})</div>
       </div>
       <div class="summary-card">
         <strong>成交量</strong>
-        <div class="value">${data.volume}</div>
+        <div class="value">${volume}</div>
       </div>
       <div class="summary-card">
         <strong>技術趨勢</strong>
-        <div class="value">${data.trend}</div>
+        <div class="value">${trend}</div>
       </div>
     </div>
   `;
@@ -281,13 +341,217 @@ function renderChart(data, selectedItem) {
   chartInstance.setOption(option);
 }
 
+function analyzeTrend(data) {
+  if (!data || data.length < 2) {
+    return {
+      score: 0,
+      rationales: ['Price trend: chart data is not sufficient for a signal.']
+    };
+  }
+
+  const closes = data.map(point => Number(point.close)).filter(Number.isFinite);
+  if (closes.length < 2) {
+    return {
+      score: 0,
+      rationales: ['Price trend: closing prices are not sufficient for a signal.']
+    };
+  }
+
+  let score = 0;
+  const rationales = [];
+  const lastClose = closes[closes.length - 1];
+  const firstClose = closes[0];
+  const windowReturn = firstClose ? ((lastClose - firstClose) / firstClose) * 100 : 0;
+  const shortPeriod = Math.min(5, closes.length);
+  const longPeriod = Math.min(20, closes.length);
+  const shortMA = average(closes.slice(-shortPeriod));
+  const longMA = average(closes.slice(-longPeriod));
+
+  if (longMA && lastClose > longMA * 1.003) {
+    score += 1;
+    rationales.push(`Price trend: latest close is ${formatPercent(((lastClose - longMA) / longMA) * 100)} above MA${longPeriod}.`);
+  } else if (longMA && lastClose < longMA * 0.997) {
+    score -= 1;
+    rationales.push(`Price trend: latest close is ${formatPercent(((lastClose - longMA) / longMA) * 100)} below MA${longPeriod}.`);
+  } else {
+    rationales.push(`Price trend: latest close is near MA${longPeriod}, so momentum is not decisive.`);
+  }
+
+  if (shortMA && longMA && shortMA > longMA * 1.003) {
+    score += 1;
+    rationales.push(`Moving average: MA${shortPeriod} is above MA${longPeriod}, suggesting near-term strength.`);
+  } else if (shortMA && longMA && shortMA < longMA * 0.997) {
+    score -= 1;
+    rationales.push(`Moving average: MA${shortPeriod} is below MA${longPeriod}, suggesting near-term weakness.`);
+  }
+
+  if (windowReturn > 3) {
+    score += 1;
+    rationales.push(`Momentum: selected range return is ${formatPercent(windowReturn)}.`);
+  } else if (windowReturn < -3) {
+    score -= 1;
+    rationales.push(`Momentum: selected range return is ${formatPercent(windowReturn)}.`);
+  } else {
+    rationales.push(`Momentum: selected range return is modest at ${formatPercent(windowReturn)}.`);
+  }
+
+  const volumes = data.map(point => Number(point.volume)).filter(value => Number.isFinite(value) && value > 0);
+  if (volumes.length >= 3) {
+    const lastVolume = volumes[volumes.length - 1];
+    const recentAverageVolume = average(volumes.slice(Math.max(0, volumes.length - 11), -1));
+    if (recentAverageVolume) {
+      const volumeRatio = lastVolume / recentAverageVolume;
+      if (volumeRatio >= 1.5 && windowReturn > 0) {
+        score += 1;
+        rationales.push(`Volume: last volume is ${volumeRatio.toFixed(1)}x recent average, confirming the up move.`);
+      } else if (volumeRatio >= 1.5 && windowReturn < 0) {
+        score -= 1;
+        rationales.push(`Volume: last volume is ${volumeRatio.toFixed(1)}x recent average, confirming selling pressure.`);
+      } else {
+        rationales.push(`Volume: last volume is ${volumeRatio.toFixed(1)}x recent average.`);
+      }
+    }
+  }
+
+  return { score, rationales };
+}
+
+function analyzeNews(news) {
+  if (!news || !news.length) {
+    return {
+      score: 0,
+      rationales: ['News: no recent headlines were available for confirmation.']
+    };
+  }
+
+  const positiveTerms = [
+    'growth', 'profit', 'beat', 'beats', 'upgrade', 'bullish', 'record', 'revenue',
+    'earnings', 'buyback', 'dividend', 'partnership', 'approval', 'demand', 'strong',
+    'outperform', 'raise', 'surge', 'rally', '成長', '獲利', '優於', '調升', '看多',
+    '利多', '創新高', '營收', '股利', '合作', '批准', '需求', '強勁', '上漲'
+  ];
+  const negativeTerms = [
+    'loss', 'miss', 'downgrade', 'bearish', 'lawsuit', 'probe', 'recall', 'delay',
+    'weak', 'cut', 'slump', 'fall', 'drop', 'risk', 'warning', 'tariff', 'sanction',
+    'decline', '虧損', '低於', '調降', '看空', '利空', '訴訟', '調查', '召回',
+    '延遲', '疲弱', '下修', '下跌', '風險', '警告', '關稅', '制裁', '衰退'
+  ];
+
+  let positiveCount = 0;
+  let negativeCount = 0;
+  news.slice(0, 10).forEach(item => {
+    const text = `${item.title || ''} ${item.summary || ''}`.toLowerCase();
+    const positiveHits = positiveTerms.filter(term => text.includes(term.toLowerCase())).length;
+    const negativeHits = negativeTerms.filter(term => text.includes(term.toLowerCase())).length;
+    if (positiveHits > negativeHits) positiveCount += 1;
+    if (negativeHits > positiveHits) negativeCount += 1;
+  });
+
+  let score = 0;
+  if (positiveCount > negativeCount) score += 1;
+  if (negativeCount > positiveCount) score -= 1;
+  if (positiveCount >= negativeCount + 3) score += 1;
+  if (negativeCount >= positiveCount + 3) score -= 1;
+
+  const rationales = [
+    `News: ${positiveCount} positive and ${negativeCount} negative keyword signals found in the latest ${Math.min(news.length, 10)} headlines.`
+  ];
+
+  if (positiveCount === negativeCount) {
+    rationales.push('News: headline tone is mixed or neutral, so price action carries more weight.');
+  } else if (positiveCount > negativeCount) {
+    rationales.push('News: headline tone supports a more constructive stance.');
+  } else {
+    rationales.push('News: headline tone argues for more caution.');
+  }
+
+  return { score, rationales };
+}
+
+function buildStrategySignal(chartData, news) {
+  const trend = analyzeTrend(chartData);
+  const headline = analyzeNews(news);
+  const score = trend.score + headline.score;
+
+  if (score >= 4) {
+    return {
+      label: 'BUY / Add',
+      tone: 'buy',
+      confidence: 'Higher',
+      summary: 'Trend and news are both constructive. Consider staged buying, with risk controls below recent support.',
+      rationales: [...trend.rationales, ...headline.rationales]
+    };
+  }
+
+  if (score >= 2) {
+    return {
+      label: 'BUY on Pullback / Hold',
+      tone: 'buy',
+      confidence: 'Medium',
+      summary: 'The setup leans bullish, but waiting for a pullback or confirmation can improve entry discipline.',
+      rationales: [...trend.rationales, ...headline.rationales]
+    };
+  }
+
+  if (score <= -4) {
+    return {
+      label: 'SELL / Reduce',
+      tone: 'sell',
+      confidence: 'Higher',
+      summary: 'Trend and news both lean negative. Reducing exposure or using a tighter stop is favored.',
+      rationales: [...trend.rationales, ...headline.rationales]
+    };
+  }
+
+  if (score <= -2) {
+    return {
+      label: 'Avoid New Buy / Trim',
+      tone: 'sell',
+      confidence: 'Medium',
+      summary: 'The setup leans cautious. Avoid chasing and consider trimming if risk limits are breached.',
+      rationales: [...trend.rationales, ...headline.rationales]
+    };
+  }
+
+  return {
+    label: 'HOLD / Wait',
+    tone: 'hold',
+    confidence: 'Low',
+    summary: 'Signals are mixed. A neutral stance is favored until price trend or news flow confirms direction.',
+    rationales: [...trend.rationales, ...headline.rationales]
+  };
+}
+
+function renderStrategySignal(chartData = [], news = []) {
+  const signal = buildStrategySignal(chartData, news);
+  strategyPanel.className = `strategy-box signal-${signal.tone}`;
+  strategyPanel.innerHTML = `
+    <div class="strategy-header">
+      <div>
+        <h2>Buy/Sell Strategy</h2>
+        <p>Rule-based educational signal. Not personalized financial advice.</p>
+      </div>
+      <div class="strategy-badge">${escapeHTML(signal.label)}</div>
+    </div>
+    <div class="strategy-summary">
+      <span>Confidence: ${escapeHTML(signal.confidence)}</span>
+      <p>${escapeHTML(signal.summary)}</p>
+    </div>
+    <div class="strategy-rationales">
+      ${signal.rationales.map(reason => `<div class="strategy-rationale">${escapeHTML(reason)}</div>`).join('')}
+    </div>
+  `;
+}
+
 async function loadMarketData(symbol) {
-  const [chartResponse, newsResponse] = await Promise.all([
-    fetch(`/api/chart?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(currentInterval)}&range=${encodeURIComponent(currentRange)}`),
+  const [chartResult, newsResult] = await Promise.allSettled([
+    fetch(`/api/chart?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(currentInterval)}&range=${encodeURIComponent(currentRange)}`)
+      .then(response => (response.ok ? response.json() : null)),
     fetch(`/api/news?symbol=${encodeURIComponent(symbol)}`)
+      .then(response => (response.ok ? response.json() : null))
   ]);
 
-  const chartData = chartResponse.ok ? await chartResponse.json() : null;
+  const chartData = chartResult.status === 'fulfilled' ? chartResult.value : null;
   if (chartData && chartData.data) {
     renderChart(chartData.data, selectedItem);
     updateSummaryFromChart(chartData.data);
@@ -295,8 +559,10 @@ async function loadMarketData(symbol) {
     chartContainer.innerHTML = '<div style="color:#94a3b8;padding:28px;">無法取得走勢資料，請稍後再試。</div>';
   }
 
-  if (newsResponse.ok) {
-    const news = await newsResponse.json();
+  const news = newsResult.status === 'fulfilled' && newsResult.value ? newsResult.value : [];
+  renderStrategySignal(chartData?.data || [], news);
+
+  if (news.length) {
     renderNews(news);
   } else {
     newsList.innerHTML = '<div class="news-item">無法取得新聞。</div>';
@@ -331,10 +597,15 @@ function renderNews(news) {
   news.forEach(item => {
     const block = document.createElement('div');
     block.className = 'news-item';
+    const href = safeExternalUrl(item.link);
+    const title = escapeHTML(item.title || 'Untitled');
+    const publisher = escapeHTML(item.publisher || '');
+    const publishedAt = item.providerPublishTime ? new Date(item.providerPublishTime * 1000).toLocaleString('zh-TW', { hour12: false }) : '';
+    const summary = item.summary ? `<p>${escapeHTML(item.summary)}</p>` : '';
     block.innerHTML = `
-      <a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.title}</a>
-      <div class="news-meta">${item.publisher || ''} ${item.providerPublishTime ? new Date(item.providerPublishTime * 1000).toLocaleString('zh-TW', { hour12: false }) : ''}</div>
-      ${item.summary ? `<p>${item.summary}</p>` : ''}
+      <a href="${href}" target="_blank" rel="noopener noreferrer">${title}</a>
+      <div class="news-meta">${publisher} ${escapeHTML(publishedAt)}</div>
+      ${summary}
     `;
     newsList.appendChild(block);
   });
@@ -344,6 +615,7 @@ function selectItem(item) {
   selectedItem = { ...item };
   currentInterval = '1d';
   currentRange = '1mo';
+  renderStrategySignal([], []);
   buildSummary({
     name: item.name,
     symbol: item.symbol,
@@ -376,7 +648,10 @@ searchInput.addEventListener('keydown', event => {
 
 searchInput.addEventListener('input', () => {
   if (searchInput.value.trim().length >= 1) {
-    performSearch(searchInput.value);
+    performSearch(searchInput.value, { save: false });
+  } else {
+    searchRequestId += 1;
+    suggestionList.innerHTML = '';
   }
 });
 
@@ -391,4 +666,5 @@ timeTabs.addEventListener('click', event => {
 });
 
 buildSummary(defaultState);
+renderStrategySignal([], []);
 loadHistory();

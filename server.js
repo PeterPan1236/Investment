@@ -111,6 +111,15 @@ async function fetchYahooSearch(query) {
   }
 }
 
+function yahooErrorPayload(message, error) {
+  return {
+    error: message,
+    details: error.message || error.code || 'Unknown Yahoo Finance error',
+    code: error.code,
+    status: error.response?.status
+  };
+}
+
 app.get('/api/search', async (req, res) => {
   const query = (req.query.query || '').trim();
   if (!query) {
@@ -193,7 +202,7 @@ app.get('/api/chart', async (req, res) => {
 
     return res.json({ symbol, meta: result.meta || {}, data });
   } catch (error) {
-    return res.status(500).json({ error: 'Unable to fetch chart data', details: error.message });
+    return res.status(500).json(yahooErrorPayload('Unable to fetch chart data', error));
   }
 });
 
@@ -231,7 +240,7 @@ app.get('/api/news', async (req, res) => {
 
     return res.json(items);
   } catch (error) {
-    return res.status(500).json({ error: 'Unable to fetch news', details: error.message });
+    return res.status(500).json(yahooErrorPayload('Unable to fetch news', error));
   }
 });
 
