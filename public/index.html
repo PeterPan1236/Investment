@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>投資分析 WebUI</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <h1>Investment Platform</h1>
+        <p>Taiwan listed stock market data (TWD) and crypto market data (USD), real-time price movement, candlestick charts, technical indicators, and trending news.</p>
+      </div>
+    </header>
+
+    <section class="search-panel">
+      <div class="search-box">
+        <input id="searchInput" placeholder="搜尋公司名稱、股票代號、Crypto..." autocomplete="off" />
+        <button id="searchButton">搜尋</button>
+      </div>
+      <div class="history-panel">
+        <div class="chip-title">搜尋記憶（最多 30 筆）</div>
+        <div id="historyList" class="chip-list"></div>
+      </div>
+      <div id="suggestionList" class="suggestion-list"></div>
+    </section>
+
+    <section class="summary-panel">
+      <div class="item-summary" id="itemSummary">
+        <div class="summary-title">選取標的後顯示詳細資訊</div>
+      </div>
+      <div class="tabs" id="timeTabs">
+        <button data-interval="5m" data-range="1d">分</button>
+        <button data-interval="30m" data-range="5d">時</button>
+        <button data-interval="1d" data-range="1mo" class="active">天</button>
+        <button data-interval="1mo" data-range="5y">月</button>
+      </div>
+    </section>
+
+    <section class="chart-panel">
+      <div id="chart" class="chart-box"></div>
+    </section>
+
+    <section class="news-panel">
+      <div class="news-header">
+        <h2>Trending News</h2>
+        <p class="news-note">Displayed in original source text only; no translation applied.</p>
+      </div>
+      <div id="newsList" class="news-list"></div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
