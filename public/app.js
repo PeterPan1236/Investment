@@ -430,7 +430,7 @@ function buildSummary(data = defaultState) {
 
   itemSummary.innerHTML = `
     <div class="summary-title">${displayName}</div>
-    <div class="summary-row">
+    <div class="summary-row grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2.5">
       <div class="summary-card">
         <strong>Symbol / Market</strong>
         <div class="value">${symbol} / ${market}</div>
@@ -880,7 +880,7 @@ function renderForecastCards(forecast) {
   }
 
   return `
-    <div class="forecast-grid">
+    <div class="forecast-grid grid grid-cols-1 md:grid-cols-3 gap-2.5">
       ${forecast.horizons.map(item => `
         <div class="forecast-card forecast-${item.tone}">
           <div class="forecast-label">${item.days}-Day Forecast</div>
@@ -952,14 +952,14 @@ function renderStrategySignal(chartData = [], news = []) {
   const forecast = calculatePriceForecasts(chartData, news, STRATEGY_LOOKBACK_LABEL);
   strategyPanel.className = `strategy-box signal-${signal.tone}`;
   strategyPanel.innerHTML = `
-    <div class="strategy-header">
+    <div class="strategy-header grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] md:items-start gap-4">
       <div>
         <h2>Auto Buy/Sell Strategy</h2>
         <p>Automatically adjusted from the prior 30-day daily trend and latest headlines. Not personalized financial advice.</p>
       </div>
-      <div class="strategy-actions">
-        <div class="strategy-badge">${escapeHTML(signal.label)}</div>
-        <button class="view-details-btn" id="viewDetailsBtn">Details</button>
+      <div class="strategy-actions flex flex-wrap items-center justify-stretch md:justify-end gap-2.5 w-full md:w-auto">
+        <div class="strategy-badge w-full md:w-auto">${escapeHTML(signal.label)}</div>
+        <button class="view-details-btn w-full md:w-auto" id="viewDetailsBtn">Details</button>
       </div>
     </div>
     <div class="strategy-summary">
@@ -1331,7 +1331,7 @@ function showStrategyAnalysisModal(chartData, news, signal, forecast = calculate
   let analysisHTML = `
     <div class="analysis-section">
       <h3>Technical Indicators</h3>
-      <div class="analysis-metrics">
+      <div class="analysis-metrics grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-2.5">
   `;
 
   if (indicators) {

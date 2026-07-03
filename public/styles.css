@@ -159,10 +159,6 @@ a:focus-visible {
 }
 
 .app-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 28px;
-  align-items: end;
   margin-bottom: 18px;
   padding: 24px;
   background: var(--header-bg);
@@ -199,11 +195,6 @@ a:focus-visible {
   line-height: 1.55;
 }
 
-.header-tools {
-  display: grid;
-  justify-items: end;
-  gap: 12px;
-}
 
 .theme-toggle {
   display: grid;
@@ -235,11 +226,6 @@ a:focus-visible {
   box-shadow: 0 8px 18px rgba(17, 24, 39, 0.14);
 }
 
-.header-glance {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(112px, 1fr));
-  gap: 10px;
-}
 
 .glance-item {
   min-height: 78px;
@@ -270,11 +256,6 @@ a:focus-visible {
   padding: 16px;
 }
 
-.search-box {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-}
 
 .search-box input {
   width: 100%;
@@ -321,9 +302,6 @@ a:focus-visible {
 }
 
 .refresh-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   min-height: 44px;
 }
 
@@ -465,12 +443,6 @@ a:focus-visible {
   font-weight: 760;
 }
 
-.summary-row {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-
 .summary-card {
   min-height: 96px;
   padding: 14px;
@@ -496,9 +468,6 @@ a:focus-visible {
 }
 
 .tabs {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
   padding: 5px;
   background: var(--tabs-bg);
   border: 1px solid var(--line);
@@ -597,10 +566,6 @@ a:focus-visible {
 }
 
 .strategy-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
-  align-items: start;
   margin-bottom: 14px;
 }
 
@@ -618,13 +583,6 @@ a:focus-visible {
   line-height: 1.5;
 }
 
-.strategy-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
 
 .strategy-badge {
   min-height: 44px;
@@ -705,11 +663,6 @@ a:focus-visible {
   line-height: 1.5;
 }
 
-.forecast-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
 
 .forecast-card {
   min-height: 128px;
@@ -814,10 +767,6 @@ a:focus-visible {
 }
 
 .news-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: end;
   margin-bottom: 16px;
 }
 
@@ -976,11 +925,6 @@ a:focus-visible {
   font-size: 1rem;
 }
 
-.analysis-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 10px;
-}
 
 .metric-card,
 .recommendation-box,
@@ -1088,11 +1032,6 @@ a:focus-visible {
   font-weight: 650;
 }
 
-.toppicks-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
 
 .pick-card {
   display: grid;
@@ -1223,23 +1162,6 @@ a:focus-visible {
   line-height: 1.45;
 }
 
-@media (max-width: 980px) {
-  .app-header {
-    grid-template-columns: 1fr;
-    align-items: start;
-  }
-
-  .header-tools {
-    width: 100%;
-    justify-items: stretch;
-  }
-
-  .header-glance,
-  .summary-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 720px) {
   .app-shell {
     width: min(100% - 24px, 1240px);
@@ -1254,37 +1176,7 @@ a:focus-visible {
     font-size: 2.15rem;
   }
 
-  .header-glance,
-  .summary-row,
-  .search-box,
-  .strategy-header,
-  .news-header {
-    grid-template-columns: 1fr;
-  }
-
   .theme-toggle {
-    width: 100%;
-  }
-
-  .news-header {
-    display: grid;
-    align-items: start;
-  }
-
-  .search-box button {
-    width: 100%;
-  }
-
-  .tabs {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .refresh-controls {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .refresh-button {
     width: 100%;
   }
 
@@ -1292,23 +1184,9 @@ a:focus-visible {
     min-height: 420px;
   }
 
-  .strategy-actions,
-  .strategy-badge,
-  .view-details-btn {
-    width: 100%;
-  }
-
-  .strategy-actions {
-    justify-content: stretch;
-  }
-
   .forecast-heading {
     display: grid;
     align-items: start;
-  }
-
-  .forecast-grid {
-    grid-template-columns: 1fr;
   }
 
   .website-box,
@@ -1318,12 +1196,6 @@ a:focus-visible {
 
   .modal {
     padding: 12px;
-  }
-}
-
-@media (max-width: 980px) {
-  .toppicks-grid {
-    grid-template-columns: 1fr;
   }
 }
 

@@ -5,23 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Investment Platform</title>
   <script src="theme-init.js"></script>
+  <script src="vendor/tailwind.js"></script>
   <link rel="stylesheet" href="styles.css" />
   <script src="vendor/echarts.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
-    <header class="app-header">
+    <header class="app-header grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-start lg:items-end gap-7">
       <div class="brand-stack">
         <span class="eyebrow">Market Workspace</span>
         <h1>Investment Platform</h1>
         <p class="header-copy">Taiwan equities and crypto research, arranged for quick scanning.</p>
       </div>
-      <div class="header-tools">
+      <div class="header-tools grid gap-3 w-full justify-items-stretch lg:w-auto lg:justify-items-end">
         <div class="theme-toggle" aria-label="Color theme">
           <button type="button" data-theme-option="light" aria-pressed="true">Light</button>
           <button type="button" data-theme-option="dark" aria-pressed="false">Dark</button>
         </div>
-        <div class="header-glance" aria-label="Market coverage">
+        <div class="header-glance grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5" aria-label="Market coverage">
           <div class="glance-item">
             <span>Coverage</span>
             <strong>Taiwan + Crypto</strong>
@@ -40,9 +41,9 @@
 
     <main class="workspace">
       <section class="search-panel panel">
-        <div class="search-box">
+        <div class="search-box grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2.5">
           <input id="searchInput" placeholder="Search TSMC, 2330, Bitcoin, BTC..." autocomplete="off" aria-haspopup="listbox" aria-controls="suggestionList" />
-          <button id="searchButton">Search</button>
+          <button id="searchButton" class="w-full md:w-auto">Search</button>
         </div>
         <div class="history-panel">
           <div class="chip-title">Recent Searches</div>
@@ -55,14 +56,14 @@
         <div class="item-summary panel" id="itemSummary">
           <div class="summary-title">Select an asset</div>
         </div>
-        <div class="tabs" id="timeTabs" aria-label="Chart interval">
+        <div class="tabs grid grid-cols-2 md:grid-cols-4 gap-1.5" id="timeTabs" aria-label="Chart interval">
           <button data-interval="5m" data-range="1d">5m</button>
           <button data-interval="30m" data-range="5d">30m</button>
           <button data-interval="1d" data-range="1mo" class="active">1D</button>
           <button data-interval="1mo" data-range="5y">1M</button>
         </div>
-        <div class="refresh-controls" aria-live="polite">
-          <button id="refreshButton" class="refresh-button" type="button" disabled>Refresh Data</button>
+        <div class="refresh-controls flex flex-col md:flex-row items-center gap-2.5" aria-live="polite">
+          <button id="refreshButton" class="refresh-button w-full md:w-auto" type="button" disabled>Refresh Data</button>
           <span id="refreshStatus" class="refresh-status">Select an asset to refresh live data.</span>
         </div>
       </section>
@@ -76,7 +77,7 @@
       </section>
 
       <section class="news-panel panel">
-        <div class="news-header">
+        <div class="news-header flex flex-col md:flex-row md:justify-between md:items-end gap-4">
           <div>
             <span class="eyebrow">Market Pulse</span>
             <h2>Trending News</h2>
@@ -95,7 +96,7 @@
           </div>
           <p class="toppicks-note">流動性充足 · 基本面導向 · 點擊載入圖表 · 非個人理財建議</p>
         </div>
-        <div id="topPicksList" class="toppicks-grid"></div>
+        <div id="topPicksList" class="toppicks-grid grid grid-cols-1 lg:grid-cols-2 gap-2.5"></div>
       </section>
     </main>
   </div>
