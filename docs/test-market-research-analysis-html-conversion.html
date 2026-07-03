@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>PRD：WAF 轉發攻擊日誌到 SIEM（Splunk）</title>
+<style>
+  body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", Arial, sans-serif; color: #111827; line-height: 1.55; max-width: 980px; margin: 32px auto; padding: 0 24px; }
+  h1 { font-size: 28px; margin: 0 0 20px; }
+  h2 { font-size: 20px; margin: 30px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #d1d5db; }
+  h3 { font-size: 16px; margin: 22px 0 8px; }
+  p { margin: 8px 0; }
+  ul { margin: 8px 0 14px 24px; padding: 0; }
+  li { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0 20px; font-size: 13px; }
+  th, td { border: 1px solid #cbd5e1; padding: 7px 9px; vertical-align: top; }
+  th { background: #f1f5f9; font-weight: 700; }
+  code { font-family: Consolas, "Courier New", monospace; background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }
+  pre { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { background: transparent; padding: 0; }
+  @media print { body { margin: 18mm; max-width: none; padding: 0; } }
+</style>
+</head>
+<body>
+<h1>PRD：WAF 轉發攻擊日誌到 SIEM（Splunk）</h1>
+<h2>1. 標題</h2>
+<ul>
+<li>產品 / 功能：WAF 攻擊日誌轉發到 SIEM（Splunk）</li>
+<li>Owner：Product Manager</li>
+<li>狀態：Draft</li>
+<li>最後更新：2026-05-29</li>
+<li>目標發布時間：TBD</li>
+</ul>
+<h2>2. 摘要</h2>
+<p>建立一個通用 SIEM 轉發能力，讓 WAF 管理員可以透過 Splunk HTTP Event Collector（HEC）將標準化後的 WAF 攻擊日誌轉發到 Splunk。此功能需支援安全設定、連線測試、事件欄位 mapping、傳送 retry、可觀測性，以及 QA 可驗證的驗收條件。</p>
+<p>預期成果是 SOC 團隊可以在 Splunk 中搜尋、關聯、告警與報告 WAF 攻擊事件，而不需要手動匯出日誌或自行撰寫客製整合程式。</p>
+<h2>3. 問題陳述</h2>
+<ul>
+<li>目前使用者 / 業務問題：資安團隊需要在 Splunk 中取得 WAF 攻擊事件，以支援事件應變、威脅狩獵、合規佐證與跨系統關聯分析。</li>
+<li>依據或訊號：WAF 日誌通常會被 SIEM 平台消費。Splunk HEC 支援透過 HTTP/S 與 token-based authentication 傳送事件資料。</li>
+<li>目前 workaround：客戶需手動匯出日誌、使用自製 script，或依賴通用 syslog / data lake pipeline，但這些方式可能遺失 WAF 專屬欄位。</li>
+<li>為什麼現在要做：客戶需要更快的 SOC 工作流程、合規報告，以及跨 WAF、API security、bot defense、application logs 的一致攻擊遙測資料。</li>
+</ul>
+<h2>4. 目標與成功指標</h2>
+<table>
+<thead><tr><th>目標</th><th>指標</th><th>Baseline</th><th>Target</th><th>Measurement source</th></tr></thead>
+<tbody>
+<tr><td>啟用 Splunk integration setup</td><td>成功設定率</td><td>TBD</td><td>&gt;= 90% admin 可不透過 support ticket 完成設定</td><td>Product telemetry / support tickets</td></tr>
+<tr><td>可靠傳送日誌</td><td>成功傳送率</td><td>TBD</td><td>排除客戶 Splunk outage 後，retry 後成功率 &gt;= 99.5%</td><td>Forwarder metrics</td></tr>
+<tr><td>降低 SOC 整合工作量</td><td>Time to first searchable event</td><td>Manual / unknown</td><td>valid config 後 &lt;= 10 分鐘</td><td>Setup telemetry / QA</td></tr>
+<tr><td>保留有用 WAF context</td><td>必填欄位完整率</td><td>TBD</td><td>&gt;= 99% forwarded events 包含 required normalized fields</td><td>Event validation metrics</td></tr>
+<tr><td>偵測傳送問題</td><td>Alerting / visibility coverage</td><td>TBD</td><td>Admin 可看到 last success、last failure、queue depth、error reason</td><td>Admin UI/API</td></tr>
+</tbody></table>
+<h2>5. 使用者與 Use Cases</h2>
+<table>
+<thead><tr><th>使用者 / 角色</th><th>需求</th><th>Use case</th><th>頻率</th><th>優先級</th></tr></thead>
+<tbody>
+<tr><td>WAF 管理員</td><td>設定 Splunk forwarding</td><td>輸入 HEC endpoint、token、index、sourcetype，並啟用 forwarding</td><td>初次設定 / 偶爾</td><td>P0</td></tr>
+<tr><td>SOC analyst</td><td>在 Splunk 調查 WAF 攻擊</td><td>依 source IP、rule、URI、severity 搜尋 blocked / challenged attacks</td><td>每日</td><td>P0</td></tr>
+<tr><td>Security engineering</td><td>將 WAF events 與 app / network logs 關聯</td><td>在 Splunk dashboards / correlation searches 使用 normalized fields 與 request IDs</td><td>每日 / 每週</td><td>P0</td></tr>
+<tr><td>Compliance auditor</td><td>驗證攻擊日誌留存與佐證</td><td>在 Splunk 檢視 WAF 攻擊歷史</td><td>每季 / 稽核週期</td><td>P1</td></tr>
+<tr><td>Support / operations</td><td>排查 forwarding failures</td><td>檢查 delivery status、errors、retries、dropped events</td><td>需要時</td><td>P1</td></tr>
+</tbody></table>
+<h2>6. 範圍</h2>
+<h3>In Scope</h3>
+<ul>
+<li>Splunk HEC destination 設定。</li>
+<li>Token-based Splunk HEC authentication。</li>
+<li>TLS-enabled HTTP/S log delivery。</li>
+<li>Test connection action。</li>
+<li>依 tenant / account 啟用或停用 forwarding。</li>
+<li>標準化 WAF attack event schema。</li>
+<li>可選的客戶控制 mapping：Splunk <code>index</code>、<code>source</code>、<code>sourcetype</code>、<code>host</code>。</li>
+<li>依 action、severity、policy、site/application、attack type 過濾。</li>
+<li>Batching、retry with backoff、queueing、delivery status。</li>
+<li>Forwarding 前的敏感資料遮罩。</li>
+<li>Admin 可見的 health state 與最近一次 error reason。</li>
+<li>針對 configuration create/update/delete/enable/disable/test actions 的 audit log。</li>
+</ul>
+<h3>Out Of Scope</h3>
+<ul>
+<li>原生 Splunk app / dashboard package。</li>
+<li>從 Splunk 反向操作 WAF 的 bidirectional actions。</li>
+<li>本版本支援非 Splunk SIEM destination。</li>
+<li>轉發完整 raw request / response body。</li>
+<li>WAF 產品內超出既有 retention 的長期日誌留存。</li>
+<li>客戶 Splunk infrastructure provisioning。</li>
+</ul>
+<h3>Dependencies</h3>
+<ul>
+<li>Design：Admin configuration UI、health status、validation messages。</li>
+<li>Engineering：WAF event pipeline、destination worker、encryption / secrets storage、retry queue。</li>
+<li>Data：標準化 security event schema 與 telemetry events。</li>
+<li>Legal / compliance：PII masking policy、customer data processing terms。</li>
+<li>Customer support / operations：Troubleshooting runbook 與 error-code mapping。</li>
+</ul>
+<h2>7. 使用者體驗</h2>
+<ul>
+<li>入口：</li>
+<li>Security Integrations &gt; SIEM Forwarding &gt; Splunk。</li>
+<li>WAF Policy &gt; Logs &gt; Forwarding。</li>
+<li>主要流程：</li>
+</ul>
+<p>  1. Admin 開啟 Splunk integration setup。</p>
+<p>  2. Admin 輸入 HEC endpoint URL、token、index、sourcetype、source、host 與 optional filters。</p>
+<p>  3. Admin 點擊 Test Connection。</p>
+<p>  4. 系統傳送 test event 到 Splunk 並顯示成功 / 失敗。</p>
+<p>  5. Admin 啟用 forwarding。</p>
+<p>  6. 系統轉發符合條件的後續 WAF attack logs。</p>
+<ul>
+<li>Empty state：</li>
+<li>顯示尚未設定 SIEM destination，並提供新增 Splunk 的 primary action。</li>
+<li>Error state：</li>
+<li>顯示可操作的錯誤：invalid URL、authentication failed、TLS failure、timeout、index rejected、rate-limited、unknown response。</li>
+<li>Loading state：</li>
+<li>顯示 testing / saving / enabling 進度，並避免 duplicate submissions。</li>
+<li>Permission state：</li>
+<li>僅 tenant / account admins 或具備 <code>security_integrations:write</code> 的使用者可 create/update/delete configuration。</li>
+<li>具備 <code>security_integrations:read</code> 的 read-only 使用者可查看 masked configuration 與 status。</li>
+<li>Notification behavior：</li>
+<li>當 forwarding 連續失敗超過可設定門檻時顯示 in-app warning，預設 15 分鐘。</li>
+<li>未來版本可支援 persistent failures 的 email / webhook alert。</li>
+<li>Accessibility 與 localization：</li>
+<li>所有 form controls 必須有 labels、validation text、keyboard navigation，以及 screen-reader accessible error messages。</li>
+</ul>
+<h2>8. 功能需求</h2>
+<table>
+<thead><tr><th>ID</th><th>Requirement</th><th>優先級</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>FR-001</td><td>作為 WAF admin，我可以為一個 tenant/account 建立一個 Splunk HEC destination。</td><td>P0</td><td>Multi-destination 可列為 future work。</td></tr>
+<tr><td>FR-002</td><td>作為 WAF admin，我可以輸入 HEC endpoint URL、token、index、source、sourcetype、host 與 timeout。</td><td>P0</td><td>Token 儲存後必須 write-only。</td></tr>
+<tr><td>FR-003</td><td>作為 WAF admin，我可以在啟用 forwarding 前測試 Splunk 連線。</td><td>P0</td><td>Test event 必須可與真實 attack logs 區分。</td></tr>
+<tr><td>FR-004</td><td>作為 WAF admin，我可以在不刪除已儲存設定的情況下啟用或停用 forwarding。</td><td>P0</td><td>Disable 必須在 60 秒內停止新的 deliveries。</td></tr>
+<tr><td>FR-005</td><td>作為 WAF admin，我可以依 action、severity、site/application、policy、attack type 過濾 forwarded events。</td><td>P1</td><td>預設應 forward all attack events。</td></tr>
+<tr><td>FR-006</td><td>系統透過 HTTPS 將標準化 WAF attack events 轉發至 Splunk HEC。</td><td>P0</td><td>HTTP 僅在明確允許的 local testing 下可使用。</td></tr>
+<tr><td>FR-007</td><td>系統在 forwarding 前遮罩 sensitive request fields。</td><td>P0</td><td>Authorization、Cookie、tokens、passwords、session IDs 與 configured query parameters。</td></tr>
+<tr><td>FR-008</td><td>系統對 failed deliveries 使用 exponential backoff retry。</td><td>P0</td><td>Retry policy 必須在 transient failures 期間避免 event loss。</td></tr>
+<tr><td>FR-009</td><td>系統揭露 forwarding health：enabled state、last success time、last failure time、last error、queue depth、dropped-event count。</td><td>P0</td><td>UI 與 internal API 都需可取得。</td></tr>
+<tr><td>FR-010</td><td>系統記錄 configuration changes 與 test actions 的 audit logs。</td><td>P0</td><td>包含 actor、timestamp、old/new non-secret values。</td></tr>
+<tr><td>FR-011</td><td>作為 SOC analyst，我可以在 Splunk 依 tenant、site、source IP、request ID、action、rule ID、severity、attack type、URI path、policy ID 搜尋 forwarded WAF events。</td><td>P0</td><td>需要 normalized field mapping。</td></tr>
+<tr><td>FR-012</td><td>系統支援可設定 max batch size 與 flush interval 的 delivery batching。</td><td>P1</td><td>預設：最多 500 events 或 5 秒，以先達成者為準。</td></tr>
+<tr><td>FR-013</td><td>系統針對 delivery success/failure/retry/drop counts 發出 internal metrics。</td><td>P1</td><td>供 platform observability 使用。</td></tr>
+</tbody></table>
+<h2>9. 非功能需求</h2>
+<table>
+<thead><tr><th>Area</th><th>Requirement</th><th>Target / constraint</th></tr></thead>
+<tbody>
+<tr><td>Performance</td><td>Forwarding 不得阻塞 WAF request processing。</td><td>Log delivery 必須與 request enforcement path 非同步。</td></tr>
+<tr><td>Reliability</td><td>Events 必須在 transient destination failures 期間 queue 並 retry。</td><td>排除客戶 Splunk outage 後，retry 後成功率 &gt;= 99.5%。</td></tr>
+<tr><td>Latency</td><td>正常負載下 forwarded events 應快速出現在 Splunk。</td><td>P95 enqueue-to-send &lt;= 60 秒。</td></tr>
+<tr><td>Security</td><td>HEC token 必須加密保存，且儲存後不得回傳。</td><td>僅顯示 masked token，例如 <code>********abcd</code>。</td></tr>
+<tr><td>Privacy</td><td>Sensitive headers、cookies、auth tokens、request body、configured PII fields 預設不得 forwarded。</td><td>Request body 預設 deny。</td></tr>
+<tr><td>Availability</td><td>Forwarding outage 不得影響 WAF enforcement。</td><td>僅 forwarding pipeline fail-open；WAF protection 仍維持 active。</td></tr>
+<tr><td>Scalability</td><td>支援高流量 attack bursts。</td><td>Queue 與 worker capacity 依 tenant event volume tier sizing。</td></tr>
+<tr><td>Observability</td><td>Platform team 可診斷 delivery failures。</td><td>Metrics、structured logs、error codes、destination status。</td></tr>
+<tr><td>Accessibility</td><td>Configuration UI 必須 accessible。</td><td>Form controls 與 error messages 達 WCAG 2.1 AA。</td></tr>
+</tbody></table>
+<h2>10. Data、API 與 Event Requirements</h2>
+<h3>Splunk HEC Destination Configuration</h3>
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Validation / behavior</th></tr></thead>
+<tbody>
+<tr><td><code>destination_id</code></td><td>string</td><td>Yes</td><td>系統產生 immutable ID。</td></tr>
+<tr><td><code>enabled</code></td><td>boolean</td><td>Yes</td><td>預設 false，直到 test 成功或 admin 確認啟用。</td></tr>
+<tr><td><code>hec_url</code></td><td>URL</td><td>Yes</td><td>必須是合法 HTTP/S URL；除 local/test mode 外必須使用 HTTPS。常見 path 為 <code>/services/collector/event</code>。</td></tr>
+<tr><td><code>hec_token</code></td><td>secret string</td><td>Yes</td><td>加密儲存；儲存後不顯示。作為 Splunk HEC authorization token。</td></tr>
+<tr><td><code>index</code></td><td>string</td><td>No</td><td>Optional Splunk index。若空白，使用 Splunk HEC token default index。</td></tr>
+<tr><td><code>source</code></td><td>string</td><td>No</td><td>預設 <code>waf</code>。</td></tr>
+<tr><td><code>sourcetype</code></td><td>string</td><td>No</td><td>預設 <code>_json</code> 或產品專屬值，例如 <code>vendor:waf:attack</code>。</td></tr>
+<tr><td><code>host</code></td><td>string</td><td>No</td><td>預設 WAF tenant/account identifier 或 configured hostname。</td></tr>
+<tr><td><code>timeout_seconds</code></td><td>integer</td><td>No</td><td>預設 10，min 1，max 60。</td></tr>
+<tr><td><code>verify_tls</code></td><td>boolean</td><td>Yes</td><td>預設 true。</td></tr>
+<tr><td><code>filters</code></td><td>object</td><td>No</td><td>Actions、severities、policies、sites、attack types。</td></tr>
+<tr><td><code>created_by</code>, <code>updated_by</code></td><td>string</td><td>Yes</td><td>Audit metadata。</td></tr>
+</tbody></table>
+<h3>Normalized WAF Attack Event Schema</h3>
+<table>
+<thead><tr><th>Field</th><th>Required</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>event_type</code></td><td>Yes</td><td><code>waf.attack</code></td></tr>
+<tr><td><code>event_id</code></td><td>Yes</td><td>用於 dedupe 的 unique event ID。</td></tr>
+<tr><td><code>event_time</code></td><td>Yes</td><td>ISO 8601 timestamp；可行時也 mapping 到 Splunk event <code>time</code>。</td></tr>
+<tr><td><code>tenant_id</code></td><td>Yes</td><td>Customer / tenant identifier。</td></tr>
+<tr><td><code>site_id</code> / <code>application_id</code></td><td>Yes</td><td>Protected site / application。</td></tr>
+<tr><td><code>policy_id</code></td><td>Yes</td><td>評估 request 的 WAF policy。</td></tr>
+<tr><td><code>request_id</code></td><td>Yes</td><td>關聯 WAF、app、CDN 與 SIEM logs。</td></tr>
+<tr><td><code>action</code></td><td>Yes</td><td><code>block</code>、<code>challenge</code>、<code>log</code>、<code>allow</code>、<code>rate_limit</code>、<code>redirect</code> 等。</td></tr>
+<tr><td><code>severity</code></td><td>Yes</td><td><code>critical</code>、<code>high</code>、<code>medium</code>、<code>low</code>、<code>info</code>。</td></tr>
+<tr><td><code>rule_id</code></td><td>Yes</td><td>Managed / custom rule ID。</td></tr>
+<tr><td><code>rule_name</code></td><td>No</td><td>Human-readable rule name。</td></tr>
+<tr><td><code>attack_type</code></td><td>Yes</td><td>SQLi、XSS、RFI、LFI、command injection、protocol anomaly、bot、API abuse 等。</td></tr>
+<tr><td><code>owasp_category</code></td><td>No</td><td>可用時提供 OWASP mapping。</td></tr>
+<tr><td><code>src_ip</code></td><td>Yes</td><td>經 trusted proxy resolution 後的 client IP。</td></tr>
+<tr><td><code>src_country</code></td><td>No</td><td>GeoIP country。</td></tr>
+<tr><td><code>src_asn</code></td><td>No</td><td>ASN。</td></tr>
+<tr><td><code>http_method</code></td><td>Yes</td><td>GET、POST、PUT 等。</td></tr>
+<tr><td><code>scheme</code></td><td>No</td><td>http/https。</td></tr>
+<tr><td><code>host</code></td><td>Yes</td><td>Request host。</td></tr>
+<tr><td><code>uri_path</code></td><td>Yes</td><td>預設不含 sensitive query 的 path。</td></tr>
+<tr><td><code>uri_query_redacted</code></td><td>No</td><td>啟用時提供 redacted query string。</td></tr>
+<tr><td><code>user_agent</code></td><td>No</td><td>必要時 redacted / truncated。</td></tr>
+<tr><td><code>referer</code></td><td>No</td><td>必要時 redacted / truncated。</td></tr>
+<tr><td><code>response_status</code></td><td>No</td><td>可用時提供。</td></tr>
+<tr><td><code>bot_score</code></td><td>No</td><td>若存在 bot module 則提供。</td></tr>
+<tr><td><code>api_endpoint_id</code></td><td>No</td><td>若存在 API discovery 則提供。</td></tr>
+<tr><td><code>tls_fingerprint</code></td><td>No</td><td>可用且允許時提供。</td></tr>
+<tr><td><code>matched_payload_sample</code></td><td>No</td><td>預設停用；若啟用，必須 truncated 且 redacted。</td></tr>
+</tbody></table>
+<h3>Splunk HEC Event Payload 範例</h3>
+<pre><code class="language-json">{
+  &quot;time&quot;: 1780000000.123,
+  &quot;host&quot;: &quot;customer-example-app&quot;,
+  &quot;source&quot;: &quot;waf&quot;,
+  &quot;sourcetype&quot;: &quot;vendor:waf:attack&quot;,
+  &quot;index&quot;: &quot;security&quot;,
+  &quot;event&quot;: {
+    &quot;event_type&quot;: &quot;waf.attack&quot;,
+    &quot;event_id&quot;: &quot;evt_01HXEXAMPLE&quot;,
+    &quot;event_time&quot;: &quot;2026-05-29T04:00:00.123Z&quot;,
+    &quot;tenant_id&quot;: &quot;tenant_123&quot;,
+    &quot;site_id&quot;: &quot;site_456&quot;,
+    &quot;policy_id&quot;: &quot;pol_789&quot;,
+    &quot;request_id&quot;: &quot;req_abc&quot;,
+    &quot;action&quot;: &quot;block&quot;,
+    &quot;severity&quot;: &quot;high&quot;,
+    &quot;rule_id&quot;: &quot;waf_sqli_001&quot;,
+    &quot;rule_name&quot;: &quot;SQL Injection Attempt&quot;,
+    &quot;attack_type&quot;: &quot;sql_injection&quot;,
+    &quot;owasp_category&quot;: &quot;A03:2021-Injection&quot;,
+    &quot;src_ip&quot;: &quot;203.0.113.10&quot;,
+    &quot;src_country&quot;: &quot;TW&quot;,
+    &quot;src_asn&quot;: 64500,
+    &quot;http_method&quot;: &quot;POST&quot;,
+    &quot;scheme&quot;: &quot;https&quot;,
+    &quot;host&quot;: &quot;app.example.com&quot;,
+    &quot;uri_path&quot;: &quot;/login&quot;,
+    &quot;uri_query_redacted&quot;: &quot;next=%2Fdashboard&quot;,
+    &quot;user_agent&quot;: &quot;Mozilla/5.0&quot;,
+    &quot;response_status&quot;: 403
+  }
+}</code></pre>
+<h3>Internal Product Analytics Events</h3>
+<table>
+<thead><tr><th>Event</th><th>Trigger</th><th>Properties</th></tr></thead>
+<tbody>
+<tr><td><code>siem_destination_created</code></td><td>Admin creates destination</td><td>tenant_id、destination_type、actor_id</td></tr>
+<tr><td><code>siem_destination_tested</code></td><td>Admin clicks Test Connection</td><td>tenant_id、success、error_code</td></tr>
+<tr><td><code>siem_forwarding_enabled</code></td><td>Admin enables forwarding</td><td>tenant_id、filters_enabled</td></tr>
+<tr><td><code>siem_forwarding_disabled</code></td><td>Admin disables forwarding</td><td>tenant_id、actor_id</td></tr>
+<tr><td><code>siem_delivery_failed</code></td><td>Worker receives final failure or threshold exceeded</td><td>tenant_id、error_code、retry_count</td></tr>
+<tr><td><code>siem_event_dropped</code></td><td>Event expires or queue overflows</td><td>tenant_id、reason</td></tr>
+</tbody></table>
+<h2>11. 驗收條件</h2>
+<table>
+<thead><tr><th>ID</th><th>Requirement ID</th><th>Given</th><th>When</th><th>Then</th><th>優先級</th></tr></thead>
+<tbody>
+<tr><td>AC-001</td><td>FR-001, FR-002</td><td>Admin 具備 <code>security_integrations:write</code> 權限</td><td>Admin 提交 valid Splunk HEC endpoint 與 token</td><td>系統儲存 destination、mask token、加密保存 token，並顯示狀態為 <code>Disabled</code> 直到啟用</td><td>P0</td></tr>
+<tr><td>AC-002</td><td>FR-002</td><td>Admin 輸入 invalid HEC URL</td><td>Admin 提交 form</td><td>系統拒絕儲存、highlight URL field，且不 persist destination</td><td>P0</td></tr>
+<tr><td>AC-003</td><td>FR-003</td><td>Destination 具有 valid endpoint 與 token</td><td>Admin 點擊 Test Connection</td><td>系統傳送 test event 到 Splunk，並在 30 秒內顯示 success</td><td>P0</td></tr>
+<tr><td>AC-004</td><td>FR-003</td><td>Destination 具有 invalid token</td><td>Admin 點擊 Test Connection</td><td>系統顯示 authentication failure、在 audit log 記錄 failed test，且不自動 enable forwarding</td><td>P0</td></tr>
+<tr><td>AC-005</td><td>FR-004</td><td>已儲存 destination 目前 disabled</td><td>Admin enable forwarding</td><td>後續符合條件的 WAF attack events 會在 60 秒內 queued for delivery</td><td>P0</td></tr>
+<tr><td>AC-006</td><td>FR-004</td><td>已儲存 destination 目前 enabled</td><td>Admin disable forwarding</td><td>新的 WAF attack events 會在 60 秒內停止 queue 到 Splunk；既有 retry queue 依 configured policy 處理</td><td>P0</td></tr>
+<tr><td>AC-007</td><td>FR-006, FR-011</td><td>Forwarding 已啟用且 WAF rule block 一次攻擊</td><td>Attack event 產生</td><td>Splunk 中出現 JSON event，包含 required fields：event_type、event_id、event_time、tenant_id、site_id、policy_id、request_id、action、severity、rule_id、attack_type、src_ip、http_method、host、uri_path</td><td>P0</td></tr>
+<tr><td>AC-008</td><td>FR-007</td><td>Request 包含 Authorization、Cookie、password、token 或 session-like parameters</td><td>Attack log 被 forwarded</td><td>Sensitive values 在 delivery 前已 redacted，且不會出現在 Splunk event payload</td><td>P0</td></tr>
+<tr><td>AC-009</td><td>FR-008</td><td>Splunk endpoint 暫時回傳 timeout 或 5xx</td><td>Events ready to forward</td><td>系統使用 exponential backoff retry，並保留 events 直到 delivered 或達到 retention limit</td><td>P0</td></tr>
+<tr><td>AC-010</td><td>FR-008, FR-009</td><td>Events 在 retry retention 到期前仍無法 delivered</td><td>Retention limit reached</td><td>系統 drop expired events、增加 dropped-event count，並在 health status / metrics 揭露原因</td><td>P0</td></tr>
+<tr><td>AC-011</td><td>FR-009</td><td>Forwarding 已啟用</td><td>Admin 開啟 integration status</td><td>UI/API 顯示 enabled state、last success time、last failure time、last error、queue depth、dropped-event count</td><td>P0</td></tr>
+<tr><td>AC-012</td><td>FR-010</td><td>Admin 更新 endpoint、token、filters 或 enabled state</td><td>Save succeeds</td><td>系統記錄 audit log，包含 actor、timestamp、changed non-secret fields、destination ID</td><td>P0</td></tr>
+<tr><td>AC-013</td><td>FR-005</td><td>Admin 設定 filter 僅 forward <code>high</code> 與 <code>critical</code> severities</td><td>WAF 產生 low、medium、high、critical events</td><td>僅 high 與 critical events 被 forwarded 到 Splunk</td><td>P1</td></tr>
+<tr><td>AC-014</td><td>FR-012</td><td>Attack events burst 發生</td><td>Forwarding 已啟用</td><td>Worker 依 configured batch size / flush interval batching events，且不阻塞 WAF enforcement</td><td>P1</td></tr>
+<tr><td>AC-015</td><td>FR-013</td><td>Delivery succeeds、fails、retries 或 drops</td><td>Worker processes events</td><td>Internal metrics 發出，並包含 tenant、destination type、result，以及可用時的 error code</td><td>P1</td></tr>
+</tbody></table>
+<h2>12. Edge Cases 與錯誤處理</h2>
+<table>
+<thead><tr><th>Case</th><th>Expected behavior</th><th>User/system message</th><th>Logging/alerting</th></tr></thead>
+<tbody>
+<tr><td>Invalid HEC URL</td><td>Reject save/test</td><td>&quot;Enter a valid Splunk HEC URL.&quot;</td><td>Validation metric</td></tr>
+<tr><td>Production 使用 HTTP endpoint</td><td>除非 environment policy 明確允許，否則 reject</td><td>&quot;HTTPS is required for Splunk forwarding.&quot;</td><td>Audit denied action</td></tr>
+<tr><td>Invalid token / 401 / 403</td><td>Test fails；若已 enabled，delivery 會 retry 後標記 unhealthy</td><td>&quot;Splunk rejected the token or destination.&quot;</td><td><code>error_code=auth_failed</code></td></tr>
+<tr><td>TLS certificate error</td><td>Test / delivery fails</td><td>&quot;TLS verification failed.&quot;</td><td><code>error_code=tls_failed</code></td></tr>
+<tr><td>Timeout</td><td>使用 backoff retry</td><td>&quot;Splunk endpoint timed out.&quot;</td><td><code>error_code=timeout</code></td></tr>
+<tr><td>429 / rate limit</td><td>使用 backoff retry 並保留 queue</td><td>&quot;Splunk endpoint is rate-limiting events.&quot;</td><td><code>error_code=rate_limited</code></td></tr>
+<tr><td>4xx bad request</td><td>Malformed event validation failure 後不 retry；標記 config / event issue</td><td>&quot;Splunk rejected the event format.&quot;</td><td><code>error_code=bad_request</code></td></tr>
+<tr><td>Queue full</td><td>依 configured policy drop，且不得阻塞 WAF enforcement</td><td>Admin health 顯示 dropped events</td><td>Alert metric</td></tr>
+<tr><td>Duplicate event retry</td><td>使用 stable <code>event_id</code>；Splunk search 可 dedupe</td><td>無 user-facing message</td><td>Delivery log includes event_id</td></tr>
+<tr><td>Token rotation</td><td>允許 admin 替換 token；old token 不可 retrieve</td><td>&quot;Token updated.&quot;</td><td>Audit config update</td></tr>
+<tr><td>Tenant disabled / deleted</td><td>停止 forwarding，並依 retention policy purge pending queue</td><td>Internal only</td><td>Audit/system log</td></tr>
+</tbody></table>
+<h2>13. QA 與 Validation Plan</h2>
+<h3>Manual QA Checklist</h3>
+<ul>
+<li>使用 valid HEC URL/token 建立 Splunk destination。</li>
+<li>確認 token 儲存後被 masked，且 read APIs 不會回傳 token。</li>
+<li>執行 Test Connection，並確認 test event 出現在 Splunk。</li>
+<li>啟用 forwarding，並產生 blocked WAF event。</li>
+<li>在 Splunk 中依 <code>event_id</code>、<code>request_id</code>、<code>src_ip</code>、<code>rule_id</code>、<code>attack_type</code> 搜尋 event。</li>
+<li>驗證 required fields 與 redaction。</li>
+<li>設定 severity filter，驗證只有 matching events 被 delivered。</li>
+<li>停用 forwarding，驗證新的 events 不再送出。</li>
+<li>Rotate token，驗證舊 token 不再被使用。</li>
+<li>模擬 timeout / 5xx / 429，驗證 retries、queue depth、health status。</li>
+<li>模擬 permanent 4xx，驗證 actionable error。</li>
+<li>驗證 create/update/test/enable/disable/delete 的 audit logs。</li>
+</ul>
+<h3>Automated Test Expectations</h3>
+<ul>
+<li>Unit tests：</li>
+<li>Configuration validation。</li>
+<li>Sensitive field redaction。</li>
+<li>Event schema mapping。</li>
+<li>Filter matching。</li>
+<li>Retry classification by HTTP status / error。</li>
+<li>Integration tests：</li>
+<li>Mock Splunk HEC success。</li>
+<li>Mock authentication failure。</li>
+<li>Mock timeout and retry。</li>
+<li>Mock malformed event rejection。</li>
+<li>Queue persistence / recovery。</li>
+<li>Regression tests：</li>
+<li>Splunk destination down 時，WAF request enforcement 仍不受影響。</li>
+<li>SIEM forwarding disabled 時，既有 WAF logging 不變。</li>
+</ul>
+<h3>Test Data Required</h3>
+<ul>
+<li>SQL injection blocked event。</li>
+<li>XSS challenged event。</li>
+<li>Bot / rate-limit event。</li>
+<li>含 Authorization / Cookie / query token 的 request，用於驗證 redaction。</li>
+<li>High-volume burst fixture。</li>
+<li>Invalid token 與 invalid TLS endpoint fixtures。</li>
+</ul>
+<h2>14. Rollout Plan</h2>
+<ul>
+<li>Feature flag：<code>splunk_siem_forwarding</code>。</li>
+<li>Phase 1：Internal staging with mock HEC。</li>
+<li>Phase 2：與 3-5 個 design partners 使用真實 Splunk 進行 beta。</li>
+<li>Phase 3：對符合資格的 plans / accounts GA。</li>
+<li>Monitoring：</li>
+<li>Delivery success rate。</li>
+<li>Retry count。</li>
+<li>Queue depth。</li>
+<li>Dropped events。</li>
+<li>Test connection success / failure。</li>
+<li>標記為 <code>splunk-forwarding</code> 的 support tickets。</li>
+<li>Rollback plan：</li>
+<li>Disable feature flag。</li>
+<li>停止新的 queueing。</li>
+<li>保留 saved configs，但標記 feature unavailable。</li>
+<li>依 policy drain 或 expire pending queue。</li>
+<li>Support readiness：</li>
+<li>常見 Splunk HEC errors runbook。</li>
+<li>Example Splunk search queries。</li>
+<li>Field mapping documentation。</li>
+</ul>
+<h2>15. 風險、取捨與 Open Questions</h2>
+<table>
+<thead><tr><th>Type</th><th>Item</th><th>Impact</th><th>Owner</th><th>Decision needed by</th></tr></thead>
+<tbody>
+<tr><td>Risk</td><td>客戶 Splunk outage 導致 queue growth</td><td>可能增加 platform storage / cost</td><td>Engineering</td><td>Before implementation</td></tr>
+<tr><td>Risk</td><td>Sensitive request data leakage</td><td>Compliance / security incident</td><td>Security/PM</td><td>Before beta</td></tr>
+<tr><td>Tradeoff</td><td>Direct HEC integration vs generic webhook framework</td><td>Direct integration 對 Splunk 較快；generic framework 有利未來 SIEM</td><td>PM/Engineering</td><td>Design review</td></tr>
+<tr><td>Open question</td><td>是否支援每個 tenant 多個 Splunk destinations？</td><td>影響 data model 與 UI</td><td>PM</td><td>Before GA</td></tr>
+<tr><td>Open question</td><td>是否支援 Splunk indexer acknowledgement？</td><td>影響 delivery semantics 與 throughput</td><td>Engineering</td><td>Before implementation</td></tr>
+<tr><td>Open question</td><td>Default sourcetype value</td><td>影響客戶 search conventions</td><td>PM/Security</td><td>Before beta</td></tr>
+<tr><td>Open question</td><td>Maximum retry retention</td><td>影響 reliability 與 storage cost</td><td>Engineering/Finance</td><td>Before beta</td></tr>
+</tbody></table>
+<h2>16. Appendix</h2>
+<h3>Splunk Searches 範例</h3>
+<pre><code class="language-spl">sourcetype=&quot;vendor:waf:attack&quot; event_type=&quot;waf.attack&quot; action=&quot;block&quot;</code></pre>
+<pre><code class="language-spl">sourcetype=&quot;vendor:waf:attack&quot; src_ip=&quot;203.0.113.10&quot; | stats count by rule_id, attack_type, uri_path</code></pre>
+<pre><code class="language-spl">sourcetype=&quot;vendor:waf:attack&quot; severity IN (&quot;high&quot;, &quot;critical&quot;) | timechart count by attack_type</code></pre>
+<h3>Sources</h3>
+<ul>
+<li>Splunk Docs: Send data to HTTP Event Collector. https://docs.splunk.com/Documentation/Splunk/latest/Data/UsetheHTTPEventCollector</li>
+<li>Splunk Docs: Format events for HTTP Event Collector. https://docs.splunk.com/Documentation/Splunk/latest/Data/FormateventsforHTTPEventCollector</li>
+<li>Splunk Docs: Set up and use HTTP Event Collector in Splunk Web. https://docs.splunk.com/Documentation/Splunk/latest/Data/HECWalkthrough</li>
+</ul>
+</body>
+</html>

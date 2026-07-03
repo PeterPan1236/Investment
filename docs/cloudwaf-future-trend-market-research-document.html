@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>CloudWAF 未來趨勢市場調查報告</title>
+<style>
+  body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", Arial, sans-serif; color: #111827; line-height: 1.55; max-width: 980px; margin: 32px auto; padding: 0 24px; }
+  h1 { font-size: 28px; margin: 0 0 20px; }
+  h2 { font-size: 20px; margin: 30px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #d1d5db; }
+  h3 { font-size: 16px; margin: 22px 0 8px; }
+  p { margin: 8px 0; }
+  ul { margin: 8px 0 14px 24px; padding: 0; }
+  li { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0 20px; font-size: 13px; }
+  th, td { border: 1px solid #cbd5e1; padding: 7px 9px; vertical-align: top; }
+  th { background: #f1f5f9; font-weight: 700; }
+  code { font-family: Consolas, "Courier New", monospace; background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }
+  pre { background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { background: transparent; padding: 0; }
+  @media print { body { margin: 18mm; max-width: none; padding: 0; } }
+</style>
+</head>
+<body>
+<h1>CloudWAF 未來趨勢市場調查報告</h1>
+<h2>1. Executive Summary</h2>
+<p>CloudWAF 的未來 3-5 年會從「Web Application Firewall」快速轉向「WAAP：Web Application and API Protection」。市場不再只比較 OWASP Top 10 規則、防 SQLi/XSS 或 CVE virtual patching，而是比較誰能同時處理 API discovery、positive security model、bot / fraud abuse、L7 DDoS、AI 驅動攻擊、低誤判營運、SIEM / DevOps 整合與合規證據。</p>
+<p>最重要的趨勢是：CloudWAF 將不再是一個獨立安全設備，而會變成應用流量控制面的一部分，和 CDN、API gateway、bot management、DDoS、runtime telemetry、SIEM、CI/CD、Terraform、MSSP / managed service 一起被採購與營運。</p>
+<h2>2. Scope And Assumptions</h2>
+<table>
+<thead><tr><th>項目</th><th>假設</th></tr></thead>
+<tbody>
+<tr><td>產品範圍</td><td>Cloud-based WAF / SaaS WAF / WAAP</td></tr>
+<tr><td>地理範圍</td><td>全球市場，補充 APAC 機會</td></tr>
+<tr><td>目標客戶</td><td>SaaS、電商、金融、醫療、API-heavy 企業、regulated SMB / mid-market</td></tr>
+<tr><td>時間範圍</td><td>2026-2031 為主要趨勢窗口，延伸觀察至 2034</td></tr>
+<tr><td>報告用途</td><td>產品方向、競品策略、roadmap、GTM 初步判斷</td></tr>
+</tbody></table>
+<h2>3. Market Snapshot</h2>
+<table>
+<thead><tr><th>Area</th><th>Findings</th><th>Evidence</th><th>Confidence</th></tr></thead>
+<tbody>
+<tr><td>市場規模</td><td>WAF 市場仍維持雙位數成長。Fortune Business Insights 估 2025 全球 WAF 市場 USD 8.60B，2026 USD 10.13B，2034 USD 30.86B，CAGR 14.9%。</td><td>Fortune Business Insights, 2026</td><td>High</td></tr>
+<tr><td>另一市場估計</td><td>Mordor Intelligence 估 2025 USD 9.37B，2026 USD 11.01B，2031 USD 22.05B，CAGR 14.9%。</td><td>Mordor Intelligence, 2026</td><td>High</td></tr>
+<tr><td>部署趨勢</td><td>Cloud-based WAF、hybrid WAF、managed service 會持續成長；hybrid configurations 因 data residency 與 cloud agility 而成長更快。</td><td>Mordor Intelligence</td><td>Medium</td></tr>
+<tr><td>APAC 機會</td><td>Fortune Business Insights 估 Asia Pacific 2025 WAF market USD 2.33B，佔 27.10%，2026 可達 USD 2.76B。</td><td>Fortune Business Insights</td><td>Medium</td></tr>
+<tr><td>採購語言變化</td><td>客戶從「買 WAF」轉向「買 WAAP / App &amp; API Protection」，要求 WAF、API security、bot mitigation、L7 DDoS 在同一平台。</td><td>Akamai / Fastly / Cloudflare product positioning</td><td>High</td></tr>
+</tbody></table>
+<h2>4. Future Trend Signals</h2>
+<table>
+<thead><tr><th>趨勢</th><th>說明</th><th>對產品的意義</th></tr></thead>
+<tbody>
+<tr><td>WAF 走向 WAAP 平台化</td><td>Akamai App &amp; API Protector 明確把 WAF、API security、bot mitigation、L7 DDoS、SIEM integration 放在同一 WAAP 產品中。</td><td>新產品不能只做 WAF rules，必須設計成 App + API + Bot + DDoS 的整合平台。</td></tr>
+<tr><td>API 成為主要攻擊面</td><td>Wallarm 2025 API ThreatStats 指出 APIs 已成為主要 attack surface，且 AI 是 API security risk 的重大驅動。</td><td>API discovery、schema validation、BOLA/BFLA、business logic abuse detection 會成為 P0。</td></tr>
+<tr><td>AI 擴大攻擊面</td><td>Akamai 2025 report 指出 AI-powered APIs 更不安全，AI-driven scanning、malware、scraping、API abuse 會提高攻擊速度與變形能力。</td><td>CloudWAF 需要 AI-assisted detection，但更重要的是可驗證的 behavioral / schema / anomaly controls。</td></tr>
+<tr><td>Bot 從流量問題變成業務邏輯問題</td><td>Imperva 2025 Bad Bot Report 指出 2024 年 44% advanced bot traffic targeting APIs，相較 10% targeting web applications，且 bots 會利用 API business logic。</td><td>Bot protection 必須深入 API workflow、帳號、付款、庫存、內容抓取等業務邏輯。</td></tr>
+<tr><td>Signature-only WAF 遇到天花板</td><td>Check Point 2025 Cloud Security Report 指出 signature-based rules 可能太窄漏掉新攻擊，或太寬造成 false positives；未來需 AI/ML detection、API discovery、schema validation。</td><td>低誤判、自動調校、learning mode、simulation mode 會變成差異化核心。</td></tr>
+<tr><td>合規驅動採用</td><td>PCI DSS 4.x Requirement 6.4.2 自 2025-03-31 起要求 public-facing web applications 部署 automated technical solution detect/prevent web-based attacks。</td><td>WAF/WAAP 要提供 audit logs、policy evidence、blocking/alerting proof、SIEM export。</td></tr>
+<tr><td>Managed WAAP 興起</td><td>LevelBlue + Akamai 2025 推出 managed WAAP，主打整合 WAF、DDoS、bot、API 與 24/7 operations。</td><td>人才不足會推動 co-managed / MSSP-friendly CloudWAF。</td></tr>
+<tr><td>DevOps / IaC 化</td><td>Akamai 強調 UI、API、CLI、Terraform；Fastly 強調 DevOps/security toolchain integration。</td><td>CloudWAF 必須有 API-first、Terraform provider、staged rollout、versioning、rollback。</td></tr>
+</tbody></table>
+<h2>5. Competitor Landscape</h2>
+<table>
+<thead><tr><th>Competitor</th><th>Type</th><th>Positioning</th><th>Key future-facing capabilities</th><th>Strengths</th><th>Weakness / gap</th></tr></thead>
+<tbody>
+<tr><td>Cloudflare</td><td>Direct</td><td>Edge WAF + API Shield + Bot Management</td><td>Edge enforcement、managed/custom rules、zero-day rules、API discovery、positive security model、global network</td><td>易啟用、性能強、開發者入口好、CDN/WAF/DDoS/Bot 一體化</td><td>進階 API/Bot/Enterprise 功能可能受方案限制；大型客戶仍需治理與調校</td></tr>
+<tr><td>Akamai</td><td>Direct</td><td>Enterprise WAAP for modern apps/APIs</td><td>WAF + API security + bot + L7 DDoS + self-tuning + SIEM connectors + hybrid WAAP</td><td>Enterprise 深度、edge scale、managed / co-managed 能力強</td><td>複雜度與商務成本較高，SMB/mid-market 門檻高</td></tr>
+<tr><td>Fastly</td><td>Direct</td><td>DevOps-friendly Next-Gen WAF / WAAP</td><td>Contextual detection、low-tuning、agent/edge/cloud flexible deployment、API abuse、bot、DDoS、DevOps integrations</td><td>部署彈性與 developer workflow 強，低 tuning 訴求清楚</td><td>品牌心智較偏 CDN/dev platform，企業採購需教育</td></tr>
+<tr><td>F5 Distributed Cloud</td><td>Direct</td><td>Hybrid / multicloud WAAP</td><td>WAF、API security、bot defense、hybrid/multicloud policy</td><td>F5 enterprise installed base 強，混合部署能力強</td><td>對 SMB 可能偏重，導入與操作成本較高</td></tr>
+<tr><td>AWS WAF / Azure WAF / Google Cloud Armor</td><td>Indirect/direct</td><td>Hyperscaler-native WAF</td><td>與雲端資源原生整合、usage-based pricing、managed rules</td><td>雲內工作負載導入快、採購簡單</td><td>多雲、API business logic、managed operations、跨平台治理較弱</td></tr>
+<tr><td>Wallarm / Salt / Traceable</td><td>Adjacent</td><td>API security specialist</td><td>API discovery、posture、runtime protection、API-specific threat detection</td><td>API threat depth 強</td><td>若客戶要完整 WAF + DDoS + Bot，需與 WAAP/CDN 並用</td></tr>
+<tr><td>DataDome / HUMAN / Kasada</td><td>Adjacent</td><td>Bot and fraud defense</td><td>Advanced bot mitigation、client telemetry、fraud abuse prevention</td><td>Bot/fraud deep specialization</td><td>不一定取代 WAF/WAAP，需要整合</td></tr>
+</tbody></table>
+<h2>6. Product Feature Research</h2>
+<table>
+<thead><tr><th>Feature</th><th>Category</th><th>Customer pain addressed</th><th>Competitor coverage</th><th>Differentiation potential</th><th>Build priority</th></tr></thead>
+<tbody>
+<tr><td>Managed OWASP/CVE rules</td><td>Table-stakes</td><td>快速防已知 web attacks</td><td>High</td><td>Low</td><td>P0</td></tr>
+<tr><td>API discovery and catalog</td><td>Table-stakes becoming core</td><td>影子 API、未註冊 API、API drift</td><td>Medium/High</td><td>Medium</td><td>P0</td></tr>
+<tr><td>Positive security model / schema enforcement</td><td>Differentiator</td><td>API payload/parameter abuse、BOLA/BFLA 前置防護</td><td>Medium</td><td>High</td><td>P0</td></tr>
+<tr><td>Bot and abuse protection</td><td>Table-stakes for WAAP</td><td>Credential stuffing、scraping、inventory hoarding、account takeover</td><td>High among leaders</td><td>Medium</td><td>P0</td></tr>
+<tr><td>L7 DDoS behavioral mitigation</td><td>Table-stakes for enterprise</td><td>Application-layer flood 與 expensive endpoint abuse</td><td>High among leaders</td><td>Medium</td><td>P0</td></tr>
+<tr><td>Low false-positive tuning workflow</td><td>Differentiator</td><td>WAF blocking real users、營運成本高</td><td>Medium</td><td>High</td><td>P0</td></tr>
+<tr><td>Simulation / alert mode / staged rollout</td><td>Table-stakes</td><td>上線風險、policy change risk</td><td>Medium/High</td><td>Medium</td><td>P0</td></tr>
+<tr><td>SIEM export and forensic fields</td><td>Table-stakes for SOC</td><td>Splunk/SIEM correlation、audit evidence</td><td>Medium/High</td><td>Medium</td><td>P0</td></tr>
+<tr><td>Terraform/API/CLI management</td><td>Differentiator for DevSecOps</td><td>CI/CD、policy-as-code、change control</td><td>Medium</td><td>High</td><td>P1</td></tr>
+<tr><td>Compliance evidence pack</td><td>Differentiator for SMB/mid-market</td><td>PCI DSS、SOC2、HIPAA audit evidence</td><td>Medium</td><td>High</td><td>P1</td></tr>
+<tr><td>Managed / co-managed operations</td><td>Differentiator</td><td>Security talent shortage、alert fatigue</td><td>Medium</td><td>High</td><td>P1</td></tr>
+<tr><td>AI-assisted tuning and rule explanation</td><td>Emerging</td><td>調校效率、SOC triage</td><td>Low/Medium</td><td>High, but needs trust</td><td>P2</td></tr>
+</tbody></table>
+<h2>7. CloudWAF Future Product Direction</h2>
+<h3>7.1 產品定位會從 WAF 變成 App/API Traffic Security Control Plane</h3>
+<p>未來 CloudWAF 不是只擋攻擊 payload，而是掌握所有 HTTP/S 與 API 流量的 security decision point。這代表產品要能回答：</p>
+<ul>
+<li>目前有哪些公開 API？</li>
+<li>哪些 API 沒有 schema 或 auth？</li>
+<li>哪些 endpoints 正被 bot/fraud abuse？</li>
+<li>哪些 WAF rules 造成 false positives？</li>
+<li>哪些 attack events 已送到 SIEM？</li>
+<li>哪些 policy change 可以安全 promotion 到 production？</li>
+</ul>
+<h3>7.2 API-first WAAP 是最大機會</h3>
+<p>Cloudflare API Shield 強調自動 discovery、cataloging、positive security model；Akamai 強調 automatic API discovery 與 API enforcement；Fastly 也把 API abuse、GraphQL/gRPC/WebSockets 放進 WAAP 覆蓋。這顯示 API security 已從專門產品變成 CloudWAF 必備模組。</p>
+<h3>7.3 False Positive Operations 會成為採購決策關鍵</h3>
+<p>安全效果只是第一關。中大型客戶更關心：</p>
+<ul>
+<li>是否能先 alert/simulate？</li>
+<li>是否能 per API/path policy？</li>
+<li>是否有 staged rollout、rollback、versioning？</li>
+<li>是否能自動推薦 tuning？</li>
+<li>是否能量化 false positive rate？</li>
+</ul>
+<p>能降低 WAF 調校人力的產品，會比只宣稱 detection coverage 的產品更容易留住客戶。</p>
+<h3>7.4 Managed WAAP / MSSP-friendly 會擴大</h3>
+<p>LevelBlue + Akamai 的 managed WAAP partnership 顯示市場正在回應兩個痛點：工具太多、人才不足。Mid-market 尤其需要「產品 + 專家營運 + 合規報告」的包裝。</p>
+<h3>7.5 Compliance-ready 會變成商業化切入點</h3>
+<p>PCI DSS 4.x 對 public-facing web applications 的 automated technical solution 要求，會讓電商、支付、SaaS、金融服務更願意採購 CloudWAF / WAAP。但真正有價值的不是只提供 WAF，而是提供：</p>
+<ul>
+<li>policy evidence</li>
+<li>attack logs</li>
+<li>audit logs</li>
+<li>SIEM export</li>
+<li>block/alert mode proof</li>
+<li>uptime and update proof</li>
+<li>compliance mapping</li>
+</ul>
+<h2>8. 2026-2031 Market Outlook</h2>
+<table>
+<thead><tr><th>Scenario</th><th>2026-2031 Outlook</th><th>Key assumptions</th><th>Confidence</th></tr></thead>
+<tbody>
+<tr><td>Conservative</td><td>WAF 市場維持約 12-14% CAGR，CloudWAF 受 cloud adoption 推動但競爭壓低價格。</td><td>客戶仍以 hyperscaler-native WAF 與 Cloudflare 為主，API security specialist 分食預算。</td><td>Medium</td></tr>
+<tr><td>Base</td><td>WAF/WAAP 市場約 14-15% CAGR，Cloud-based / hybrid WAAP 成為主流，API + bot + managed ops 拉高 ARPU。</td><td>API attack、bot abuse、PCI DSS、AI attack surface 持續推動採購。</td><td>High</td></tr>
+<tr><td>Aggressive</td><td>WAAP 預算從 WAF、bot、API security、DDoS、SIEM integration 多個 point tools 整併，平台型 vendor 擴大 wallet share。</td><td>客戶偏好 consolidation，managed WAAP 與 compliance pack 成為標配。</td><td>Medium</td></tr>
+</tbody></table>
+<h2>9. Strategic Recommendations</h2>
+<table>
+<thead><tr><th>Recommendation</th><th>Rationale</th><th>Evidence</th><th>Expected impact</th><th>Effort</th><th>Risk</th></tr></thead>
+<tbody>
+<tr><td>把產品定義為 WAAP，不要只叫 WAF</td><td>市場語言已轉向 WAF + API + Bot + DDoS</td><td>Akamai/Fastly positioning</td><td>提升 enterprise relevance</td><td>Medium</td><td>Low</td></tr>
+<tr><td>P0 做 API discovery + schema enforcement</td><td>API 是主要攻擊面，AI/API risk 上升</td><td>Wallarm/Akamai/Cloudflare</td><td>建立差異化</td><td>High</td><td>Medium</td></tr>
+<tr><td>P0 做 low false-positive workflow</td><td>Signature-only WAF 調校成本高</td><td>Check Point report / vendor messaging</td><td>降低 churn，提升 trial conversion</td><td>Medium</td><td>Medium</td></tr>
+<tr><td>P1 做 Splunk/SIEM export</td><td>SOC 與 compliance 需要 attack telemetry</td><td>Akamai SIEM connector positioning</td><td>提升 enterprise readiness</td><td>Medium</td><td>Low</td></tr>
+<tr><td>P1 做 compliance evidence pack</td><td>PCI DSS 6.4.2 已成採購 trigger</td><td>PCI SSC FAQ</td><td>更容易進入 regulated SMB/ecommerce</td><td>Medium</td><td>Low</td></tr>
+<tr><td>P1 建立 MSSP/multi-tenant console</td><td>Managed WAAP 需求增加</td><td>LevelBlue + Akamai</td><td>放大 channel sales</td><td>High</td><td>Medium</td></tr>
+<tr><td>P2 做 AI-assisted tuning，不要過早承諾 autonomous blocking</td><td>AI detection 有需求，但信任與誤判風險高</td><td>Check Point AI/ML trend</td><td>長期差異化</td><td>High</td><td>High</td></tr>
+</tbody></table>
+<h2>10. Risks And Unknowns</h2>
+<table>
+<thead><tr><th>Risk / unknown</th><th>Why it matters</th><th>How to validate</th></tr></thead>
+<tbody>
+<tr><td>Hyperscaler-native WAF 價格壓力</td><td>AWS/Azure/GCP 容易吃掉雲內基本需求</td><td>訪談 cloud-native 客戶是否願為多雲、API、bot、managed ops 額外付費</td></tr>
+<tr><td>Cloudflare 心智太強</td><td>SMB/mid-market 會先想到 Cloudflare</td><td>用垂直場景切入，如 PCI/ecommerce/API-heavy SaaS</td></tr>
+<tr><td>API security specialist 分食預算</td><td>Wallarm/Salt/Traceable 在 API depth 強</td><td>比較客戶是否要 full WAAP 或 API-only</td></tr>
+<tr><td>AI detection 誤判與可解釋性</td><td>Security buyer 對 autonomous blocking 保守</td><td>Beta 測試：AI recommendation only vs auto-block</td></tr>
+<tr><td>Managed service 成本</td><td>人工調校/24x7 support 會吃 margin</td><td>先設計 partner/MSSP model 與清楚服務分層</td></tr>
+</tbody></table>
+<h2>11. Sources</h2>
+<ul>
+<li>Fortune Business Insights, Web Application Firewall Market, updated 2026-05-11: https://www.fortunebusinessinsights.com/web-application-firewall-market-108841</li>
+<li>Mordor Intelligence, Web Application Firewall Market Size &amp; Share Analysis, 2026-2031: https://www.mordorintelligence.com/industry-reports/web-application-firewall-market</li>
+<li>Wallarm, 2025 API ThreatStats Report press release: https://www.wallarm.com/press-releases/wallarm-releases-2025-api-threatstats-report</li>
+<li>Akamai, State of Apps and API Security 2025 PDF preview: https://www.akamai.com/site/en/documents/state-of-the-internet/2025/akamai-web-application-attacks-and-api-attacks-pdf-preview.pdf</li>
+<li>Imperva / Thales, 2025 Bad Bot Report: https://www.imperva.com/resources/wp-content/uploads/sites/6/reports/2025-Bad-Bot-Report.pdf</li>
+<li>Check Point / Cybersecurity Insiders, 2025 Cloud Security Report: https://webobjects2.cdw.com/is/content/CDW/cdw/on-domain-cdw/brands/check-point/check-point-cloud-security-report-2025-cdw-v1dp.pdf</li>
+<li>Cloudflare WAF product page: https://www.cloudflare.com/products/waf/</li>
+<li>Cloudflare API Shield product page: https://www.cloudflare.com/products/api-shield/</li>
+<li>Akamai App &amp; API Protector product page: https://www.akamai.com/products/app-and-api-protector</li>
+<li>Fastly Next-Gen WAF product page: https://www.fastly.com/products/web-application-api-protection</li>
+<li>PCI Security Standards Council FAQ, PCI DSS v4.x superseded requirements after 2025-03-31: https://www.pcisecuritystandards.org/faq/articles/Frequently_Asked_Question/how-should-pci-dss-v4-x-requirements-noted-as-superseded-by-another-requirement-be-reported-after-31-march-2025/</li>
+</ul>
+</body>
+</html>

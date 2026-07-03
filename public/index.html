@@ -1,60 +1,113 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>投資分析 WebUI</title>
+  <title>Investment Platform</title>
+  <script src="theme-init.js"></script>
   <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+  <script src="vendor/echarts.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
     <header class="app-header">
-      <div>
+      <div class="brand-stack">
+        <span class="eyebrow">Market Workspace</span>
         <h1>Investment Platform</h1>
-        <p>Taiwan listed stock market data (TWD) and crypto market data (USD), real-time price movement, candlestick charts, technical indicators, and trending news.</p>
+        <p class="header-copy">Taiwan equities and crypto research, arranged for quick scanning.</p>
+      </div>
+      <div class="header-tools">
+        <div class="theme-toggle" aria-label="Color theme">
+          <button type="button" data-theme-option="light" aria-pressed="true">Light</button>
+          <button type="button" data-theme-option="dark" aria-pressed="false">Dark</button>
+        </div>
+        <div class="header-glance" aria-label="Market coverage">
+          <div class="glance-item">
+            <span>Coverage</span>
+            <strong>Taiwan + Crypto</strong>
+          </div>
+          <div class="glance-item">
+            <span>Currency</span>
+            <strong>TWD / USD</strong>
+          </div>
+          <div class="glance-item">
+            <span>Source</span>
+            <strong>Yahoo Finance</strong>
+          </div>
+        </div>
       </div>
     </header>
 
-    <section class="search-panel">
-      <div class="search-box">
-        <input id="searchInput" placeholder="搜尋公司名稱、股票代號、Crypto..." autocomplete="off" />
-        <button id="searchButton">搜尋</button>
-      </div>
-      <div class="history-panel">
-        <div class="chip-title">搜尋記憶（最多 30 筆）</div>
-        <div id="historyList" class="chip-list"></div>
-      </div>
-      <div id="suggestionList" class="suggestion-list"></div>
-    </section>
+    <main class="workspace">
+      <section class="search-panel panel">
+        <div class="search-box">
+          <input id="searchInput" placeholder="Search TSMC, 2330, Bitcoin, BTC..." autocomplete="off" aria-haspopup="listbox" aria-controls="suggestionList" />
+          <button id="searchButton">Search</button>
+        </div>
+        <div class="history-panel">
+          <div class="chip-title">Recent Searches</div>
+          <div id="historyList" class="chip-list"></div>
+        </div>
+        <div id="suggestionList" class="suggestion-list" role="listbox" aria-label="Search suggestions"></div>
+      </section>
 
-    <section class="summary-panel">
-      <div class="item-summary" id="itemSummary">
-        <div class="summary-title">選取標的後顯示詳細資訊</div>
-      </div>
-      <div class="tabs" id="timeTabs">
-        <button data-interval="5m" data-range="1d">分</button>
-        <button data-interval="30m" data-range="5d">時</button>
-        <button data-interval="1d" data-range="1mo" class="active">天</button>
-        <button data-interval="1mo" data-range="5y">月</button>
-      </div>
-    </section>
+      <section class="summary-panel">
+        <div class="item-summary panel" id="itemSummary">
+          <div class="summary-title">Select an asset</div>
+        </div>
+        <div class="tabs" id="timeTabs" aria-label="Chart interval">
+          <button data-interval="5m" data-range="1d">5m</button>
+          <button data-interval="30m" data-range="5d">30m</button>
+          <button data-interval="1d" data-range="1mo" class="active">1D</button>
+          <button data-interval="1mo" data-range="5y">1M</button>
+        </div>
+        <div class="refresh-controls" aria-live="polite">
+          <button id="refreshButton" class="refresh-button" type="button" disabled>Refresh Data</button>
+          <span id="refreshStatus" class="refresh-status">Select an asset to refresh live data.</span>
+        </div>
+      </section>
 
-    <section class="chart-panel">
-      <div id="chart" class="chart-box"></div>
-    </section>
+      <section class="chart-panel panel">
+        <div id="chart" class="chart-box"></div>
+      </section>
 
-    <section class="strategy-panel">
-      <div id="strategyPanel" class="strategy-box"></div>
-    </section>
+      <section class="strategy-panel">
+        <div id="strategyPanel" class="strategy-box"></div>
+      </section>
 
-    <section class="news-panel">
-      <div class="news-header">
-        <h2>Trending News</h2>
-        <p class="news-note">Displayed in original source text only; no translation applied.</p>
+      <section class="news-panel panel">
+        <div class="news-header">
+          <div>
+            <span class="eyebrow">Market Pulse</span>
+            <h2>Trending News</h2>
+          </div>
+          <p class="news-note">Original source text</p>
+        </div>
+        <div id="websiteBox"></div>
+        <div id="newsList" class="news-list"></div>
+      </section>
+
+      <section class="toppicks-panel panel">
+        <div class="toppicks-header">
+          <div>
+            <span class="eyebrow">中長期配置</span>
+            <h2>Top 10 推薦標的</h2>
+          </div>
+          <p class="toppicks-note">流動性充足 · 基本面導向 · 點擊載入圖表 · 非個人理財建議</p>
+        </div>
+        <div id="topPicksList" class="toppicks-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="strategyModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Strategy Details</h2>
+        <button class="modal-close" id="modalCloseBtn" aria-label="Close">&times;</button>
       </div>
-      <div id="newsList" class="news-list"></div>
-    </section>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
   </div>
 
   <script src="app.js"></script>
