@@ -2,9 +2,19 @@
 node_modules/
 
 # Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+*.log
+
+# Local debug artifacts
+/temp-debug.js
+/*.png
+
+# Wrangler local state
+.wrangler/
+.playwright-mcp/
+
+# Vendored third-party repos kept locally for reference only
+/vercel-find-skills/
+/vercel-react-best-practices/
 
 # Optional npm cache directory
 .npm

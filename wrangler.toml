@@ -1,0 +1,7 @@
+name = "investment-webui"
+pages_build_output_dir = "public"
+compatibility_date = "2026-08-14"
+
+# Static assets are served from public/; the API lives in functions/ as Pages
+# Functions (functions/api/* -> /api/*). server.js is the local Express
+# equivalent and is not used by this deployment.

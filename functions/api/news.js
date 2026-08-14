@@ -22,15 +22,26 @@ export async function onRequestGet({ request }) {
       news = quotes.flatMap(q => q.news || []);
     }
 
+    // Yahoo repeats the same story across syndication partners; dedupe on the
+    // normalized headline so sentiment is not counted twice.
+    const seen = new Set();
     const items = news
-      .slice(0, 20)
       .map(n => ({
+        symbol,
         title: n.title,
         link: n.link,
         publisher: n.publisher,
         providerPublishTime: n.providerPublishTime,
         summary: n.summary
-      }));
+      }))
+      .filter(item => {
+        const key = (item.title || '').toLowerCase().replace(/\s+/g, '').slice(0, 80);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => (b.providerPublishTime || 0) - (a.providerPublishTime || 0))
+      .slice(0, 20);
 
     return Response.json(items);
   } catch (error) {

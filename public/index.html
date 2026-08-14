@@ -1,35 +1,65 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Investment Platform</title>
   <script src="theme-init.js"></script>
-  <script src="vendor/tailwind.js"></script>
+  <link rel="stylesheet" href="vendor/tailwind.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="vendor/echarts.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
+    <div class="disclaimer-bar" role="note">
+      <div class="disclaimer-main">
+        <span class="disclaimer-tag">重要聲明</span>
+        <p>
+          本站為<strong>市場資料查詢與量化篩選工具</strong>，所有數值為程式依公開報價計算的結果，
+          <strong>不構成任何投資建議、要約或個別推薦</strong>。清單為使用者自訂條件的篩選輸出，非推薦標的。
+          投資有風險，損益自負。
+        </p>
+      </div>
+      <div class="disclaimer-actions">
+        <button type="button" id="methodologyBtn" class="ghost-button">方法論</button>
+        <button type="button" id="taxNoteBtn" class="ghost-button">稅務與幣別說明</button>
+      </div>
+    </div>
+
+    <div class="source-bar" id="sourceBar" aria-live="polite">
+      <span class="source-chip"><span class="source-key">資料來源</span><strong id="sourceProvider">Yahoo Finance</strong></span>
+      <span class="source-chip"><span class="source-key">報價延遲</span><strong id="sourceDelay">約 15 分鐘</strong></span>
+      <span class="source-chip"><span class="source-key">台股狀態</span><strong id="marketStatusTw">載入中…</strong></span>
+      <span class="source-chip"><span class="source-key">Crypto</span><strong>24/7 交易</strong></span>
+      <span class="source-chip"><span class="source-key">價格調整</span><strong>已還原除權息／分割</strong></span>
+      <span class="source-chip"><span class="source-key">最後更新</span><strong id="sourceUpdated">--</strong></span>
+    </div>
+
     <header class="app-header grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] items-start lg:items-end gap-7">
       <div class="brand-stack">
         <span class="eyebrow">Market Workspace</span>
         <h1>Investment Platform</h1>
-        <p class="header-copy">Taiwan equities and crypto research, arranged for quick scanning.</p>
+        <p class="header-copy">台股與加密資產的資料查詢、訊號回測與投組風險檢視。</p>
       </div>
       <div class="header-tools grid gap-3 w-full justify-items-stretch lg:w-auto lg:justify-items-end">
-        <div class="theme-toggle" aria-label="Color theme">
-          <button type="button" data-theme-option="light" aria-pressed="true">Light</button>
-          <button type="button" data-theme-option="dark" aria-pressed="false">Dark</button>
+        <div class="toggle-row">
+          <div class="segmented" id="baseCurrencyToggle" aria-label="計價幣別">
+            <button type="button" data-base="TWD" class="active" aria-pressed="true">TWD</button>
+            <button type="button" data-base="USD" aria-pressed="false">USD</button>
+          </div>
+          <div class="segmented theme-toggle" aria-label="Color theme">
+            <button type="button" data-theme-option="light" aria-pressed="true">Light</button>
+            <button type="button" data-theme-option="dark" aria-pressed="false">Dark</button>
+          </div>
         </div>
-        <div class="header-glance grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5" aria-label="Market coverage">
+        <div class="header-glance grid grid-cols-1 md:grid-cols-3 gap-2.5" aria-label="Market coverage">
           <div class="glance-item">
             <span>Coverage</span>
             <strong>Taiwan + Crypto</strong>
           </div>
           <div class="glance-item">
-            <span>Currency</span>
-            <strong>TWD / USD</strong>
+            <span>FX</span>
+            <strong id="fxRateLabel">USD/TWD --</strong>
           </div>
           <div class="glance-item">
             <span>Source</span>
@@ -39,64 +69,218 @@
       </div>
     </header>
 
+    <nav class="view-tabs" id="viewTabs" aria-label="工作區分頁">
+      <button type="button" data-view="overview" class="active" aria-selected="true">市場總覽</button>
+      <button type="button" data-view="signal" aria-selected="false">訊號</button>
+      <button type="button" data-view="backtest" aria-selected="false">回測</button>
+      <button type="button" data-view="portfolio" aria-selected="false">投組風險</button>
+      <button type="button" data-view="screener" aria-selected="false">篩選清單</button>
+    </nav>
+
     <main class="workspace">
-      <section class="search-panel panel">
-        <div class="search-box grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2.5">
-          <input id="searchInput" placeholder="Search TSMC, 2330, Bitcoin, BTC..." autocomplete="off" aria-haspopup="listbox" aria-controls="suggestionList" />
-          <button id="searchButton" class="w-full md:w-auto">Search</button>
-        </div>
-        <div class="history-panel">
-          <div class="chip-title">Recent Searches</div>
-          <div id="historyList" class="chip-list"></div>
-        </div>
-        <div id="suggestionList" class="suggestion-list" role="listbox" aria-label="Search suggestions"></div>
-      </section>
-
-      <section class="summary-panel">
-        <div class="item-summary panel" id="itemSummary">
-          <div class="summary-title">Select an asset</div>
-        </div>
-        <div class="tabs grid grid-cols-2 md:grid-cols-4 gap-1.5" id="timeTabs" aria-label="Chart interval">
-          <button data-interval="5m" data-range="1d">5m</button>
-          <button data-interval="30m" data-range="5d">30m</button>
-          <button data-interval="1d" data-range="1mo" class="active">1D</button>
-          <button data-interval="1mo" data-range="5y">1M</button>
-        </div>
-        <div class="refresh-controls flex flex-col md:flex-row items-center gap-2.5" aria-live="polite">
-          <button id="refreshButton" class="refresh-button w-full md:w-auto" type="button" disabled>Refresh Data</button>
-          <span id="refreshStatus" class="refresh-status">Select an asset to refresh live data.</span>
-        </div>
-      </section>
-
-      <section class="chart-panel panel">
-        <div id="chart" class="chart-box"></div>
-      </section>
-
-      <section class="strategy-panel">
-        <div id="strategyPanel" class="strategy-box"></div>
-      </section>
-
-      <section class="news-panel panel">
-        <div class="news-header flex flex-col md:flex-row md:justify-between md:items-end gap-4">
-          <div>
-            <span class="eyebrow">Market Pulse</span>
-            <h2>Trending News</h2>
+      <section class="view" data-view-panel="overview">
+        <section class="search-panel panel">
+          <div class="search-box grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2.5">
+            <input id="searchInput" placeholder="搜尋 TSMC、2330、Bitcoin、BTC..." autocomplete="off" aria-haspopup="listbox" aria-controls="suggestionList" />
+            <button id="searchButton" class="w-full md:w-auto">搜尋</button>
           </div>
-          <p class="news-note">Original source text</p>
-        </div>
-        <div id="websiteBox"></div>
-        <div id="newsList" class="news-list"></div>
+          <div class="history-panel">
+            <div class="chip-title">最近查詢</div>
+            <div id="historyList" class="chip-list"></div>
+          </div>
+          <div id="suggestionList" class="suggestion-list" role="listbox" aria-label="Search suggestions"></div>
+        </section>
+
+        <section class="summary-panel">
+          <div class="item-summary panel" id="itemSummary">
+            <div class="summary-title">選擇一檔標的</div>
+          </div>
+          <div class="tabs grid grid-cols-2 md:grid-cols-4 gap-1.5" id="timeTabs" aria-label="Chart interval">
+            <button data-interval="5m" data-range="1d">5m</button>
+            <button data-interval="30m" data-range="5d">30m</button>
+            <button data-interval="1d" data-range="1mo" class="active">1D</button>
+            <button data-interval="1mo" data-range="5y">1M</button>
+          </div>
+          <div class="refresh-controls flex flex-col md:flex-row items-center gap-2.5" aria-live="polite">
+            <button id="refreshButton" class="refresh-button w-full md:w-auto" type="button" disabled>重新整理</button>
+            <span id="refreshStatus" class="refresh-status">選擇標的後可更新即時資料。</span>
+          </div>
+        </section>
+
+        <section class="chart-panel panel">
+          <div id="chart" class="chart-box"></div>
+          <div class="panel-meta" data-panel-meta="chart"></div>
+        </section>
+
+        <section class="news-panel panel">
+          <div class="news-header flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+            <div>
+              <span class="eyebrow">Market Pulse</span>
+              <h2>個股新聞與情緒</h2>
+            </div>
+            <p class="news-note">已去重 · 依時間排序 · 情緒標籤即為訊號採用的分數</p>
+          </div>
+          <div id="websiteBox"></div>
+          <div id="newsList" class="news-list"></div>
+          <div class="panel-meta" data-panel-meta="news"></div>
+        </section>
       </section>
 
-      <section class="toppicks-panel panel">
-        <div class="toppicks-header">
-          <div>
-            <span class="eyebrow">中長期配置</span>
-            <h2>Top 10 推薦標的</h2>
+      <section class="view" data-view-panel="signal" hidden>
+        <section class="strategy-panel">
+          <div id="strategyPanel" class="strategy-box"></div>
+        </section>
+        <section class="panel" id="signalHistoryPanel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Track Record</span>
+              <h2>訊號歷史與命中率</h2>
+            </div>
+            <p class="panel-note">每次狀態翻轉皆列出，並以下一次翻轉為出場點計算報酬</p>
           </div>
-          <p class="toppicks-note">流動性充足 · 基本面導向 · 點擊載入圖表 · 非個人理財建議</p>
-        </div>
-        <div id="topPicksList" class="toppicks-grid grid grid-cols-1 lg:grid-cols-2 gap-2.5"></div>
+          <div id="signalHistoryBody"></div>
+          <div class="panel-meta" data-panel-meta="signal"></div>
+        </section>
+      </section>
+
+      <section class="view" data-view-panel="backtest" hidden>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Validation</span>
+              <h2>策略回測</h2>
+            </div>
+            <p class="panel-note">同一套訊號、含交易成本、與買進持有對照</p>
+          </div>
+          <form class="control-row" id="backtestControls">
+            <label class="control">
+              <span>起始日</span>
+              <input type="date" id="backtestFrom" />
+            </label>
+            <label class="control">
+              <span>結束日</span>
+              <input type="date" id="backtestTo" />
+            </label>
+            <label class="control">
+              <span>歷史長度</span>
+              <select id="backtestRange">
+                <option value="1y">1 年</option>
+                <option value="2y" selected>2 年</option>
+                <option value="5y">5 年</option>
+              </select>
+            </label>
+            <button type="submit" id="runBacktestBtn">執行回測</button>
+          </form>
+          <div id="backtestBody"></div>
+          <div class="panel-meta" data-panel-meta="backtest"></div>
+        </section>
+      </section>
+
+      <section class="view" data-view-panel="portfolio" hidden>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Risk</span>
+              <h2>投組權重與相關性</h2>
+            </div>
+            <p class="panel-note">權重加總 100%（含現金）· 相關性由日報酬計算</p>
+          </div>
+          <form class="control-row" id="portfolioControls">
+            <label class="control">
+              <span>配置方式</span>
+              <select id="sizingMethod">
+                <option value="inverseVol" selected>波動度反比（風險平衡）</option>
+                <option value="equal">等權重</option>
+              </select>
+            </label>
+            <label class="control">
+              <span>現金水位</span>
+              <select id="cashWeight">
+                <option value="0">0%</option>
+                <option value="0.1">10%</option>
+                <option value="0.2" selected>20%</option>
+                <option value="0.3">30%</option>
+                <option value="0.4">40%</option>
+              </select>
+            </label>
+            <label class="control">
+              <span>樣本區間</span>
+              <select id="portfolioRange">
+                <option value="6mo">6 個月</option>
+                <option value="1y" selected>1 年</option>
+                <option value="2y">2 年</option>
+              </select>
+            </label>
+            <button type="submit" id="rebuildPortfolioBtn">重新計算</button>
+          </form>
+          <div id="portfolioBody"></div>
+          <div class="panel-meta" data-panel-meta="portfolio"></div>
+        </section>
+      </section>
+
+      <section class="view" data-view-panel="screener" hidden>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Screener Output</span>
+              <h2>篩選結果</h2>
+            </div>
+            <p class="panel-note">依下列條件由程式輸出，非推薦標的；論點為觀察筆記，逾 90 天未覆核將標記待覆核</p>
+          </div>
+          <form class="control-row" id="screenerControls">
+            <label class="control">
+              <span>市場</span>
+              <select id="criteriaMarket">
+                <option value="all" selected>全部</option>
+                <option value="tw">台股</option>
+                <option value="crypto">Crypto</option>
+              </select>
+            </label>
+            <label class="control">
+              <span>最低流動性</span>
+              <select id="criteriaLiquidity">
+                <option value="1">★1</option>
+                <option value="3" selected>★3</option>
+                <option value="4">★4</option>
+                <option value="5">★5</option>
+              </select>
+            </label>
+            <label class="control">
+              <span>年化波動上限</span>
+              <select id="criteriaVolatility">
+                <option value="0.3">30%</option>
+                <option value="0.5">50%</option>
+                <option value="0.8">80%</option>
+                <option value="1.2" selected>120%</option>
+                <option value="5">不限</option>
+              </select>
+            </label>
+            <label class="control">
+              <span>訊號狀態</span>
+              <select id="criteriaSignal">
+                <option value="all" selected>不限</option>
+                <option value="BUY">BUY</option>
+                <option value="HOLD">HOLD</option>
+                <option value="SELL">SELL</option>
+              </select>
+            </label>
+            <label class="control">
+              <span>相對 MA200</span>
+              <select id="criteriaTrend">
+                <option value="all" selected>不限</option>
+                <option value="above">站上</option>
+                <option value="below">跌破</option>
+              </select>
+            </label>
+            <label class="control control-checkbox">
+              <input type="checkbox" id="criteriaHideStale" />
+              <span>只顯示已覆核</span>
+            </label>
+          </form>
+          <div id="screenerSummary" class="screener-summary"></div>
+          <div id="screenerList" class="screener-grid grid grid-cols-1 xl:grid-cols-2 gap-2.5"></div>
+          <div class="panel-meta" data-panel-meta="screener"></div>
+        </section>
       </section>
     </main>
   </div>
@@ -111,6 +295,12 @@
     </div>
   </div>
 
+  <script src="lib/indicators.js"></script>
+  <script src="lib/signal.js"></script>
+  <script src="lib/forecast.js"></script>
+  <script src="lib/backtest.js"></script>
+  <script src="lib/portfolio.js"></script>
+  <script src="lib/screener.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -70,7 +70,115 @@ const cryptoList = [
 ];
 const searchItems = [...stocks, ...cryptoList];
 const validIntervals = new Set(['5m', '30m', '1d', '1mo']);
-const validRanges = new Set(['1d', '5d', '1mo', '5y']);
+const validRanges = new Set(['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y']);
+
+const QUOTE_DELAY_MINUTES = 15;
+const upstreamCache = new Map();
+
+function cacheGet(key) {
+  const entry = upstreamCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    upstreamCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function cacheSet(key, value, ttlMs) {
+  upstreamCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+  if (upstreamCache.size > 400) {
+    const oldestKey = upstreamCache.keys().next().value;
+    upstreamCache.delete(oldestKey);
+  }
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of upstreamCache) {
+    if (now > entry.expiresAt) upstreamCache.delete(key);
+  }
+}, 60 * 1000).unref();
+
+const YAHOO_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
+};
+
+// Single upstream call per (url, ttl) window. Free Yahoo endpoints throttle
+// aggressively, so every fan-out request (batch history, screener quotes)
+// must share the same cache.
+async function fetchYahooJson(url, ttlMs) {
+  const cached = cacheGet(url);
+  if (cached) return cached;
+
+  const response = await axios.get(url, { timeout: 15000, headers: YAHOO_HEADERS });
+  cacheSet(url, response.data, ttlMs);
+  return response.data;
+}
+
+function chartUrl(symbol, interval, range) {
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`
+    + `?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`
+    + '&includePrePost=false&events=div%2Csplit';
+}
+
+// Split/dividend adjusted closes are required for moving averages, returns and
+// backtests; raw OHLC is kept for candle rendering only.
+function normalizeChartResult(result) {
+  const quote = result.indicators?.quote?.[0] || {};
+  const adjClose = result.indicators?.adjclose?.[0]?.adjclose || [];
+  const timestamps = result.timestamp || [];
+
+  return timestamps
+    .map((timestamp, index) => ({
+      timestamp: timestamp * 1000,
+      open: quote.open?.[index],
+      high: quote.high?.[index],
+      low: quote.low?.[index],
+      close: quote.close?.[index],
+      adjClose: adjClose[index] ?? quote.close?.[index],
+      volume: quote.volume?.[index]
+    }))
+    .filter(point => point.open != null && point.close != null && point.high != null && point.low != null);
+}
+
+const TAIPEI_TIMEZONE = 'Asia/Taipei';
+
+function taipeiParts(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: TAIPEI_TIMEZONE,
+    hour12: false,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(date).map(part => [part.type, part.value]));
+  return {
+    weekday: parts.weekday,
+    minutes: (Number(parts.hour) % 24) * 60 + Number(parts.minute)
+  };
+}
+
+// TWSE regular session is 09:00-13:30 Taipei time on weekdays. Public holidays
+// are not encoded here, so a weekday with no fresh bar is reported as stale
+// rather than open; the client shows the last bar timestamp either way.
+function taiwanMarketStatus(now = new Date()) {
+  const { weekday, minutes } = taipeiParts(now);
+  const isWeekend = weekday === 'Sat' || weekday === 'Sun';
+  const openMinutes = 9 * 60;
+  const closeMinutes = 13 * 60 + 30;
+
+  if (isWeekend) {
+    return { state: 'closed', label: '休市（週末）', session: 'TWSE 09:00–13:30 (UTC+8)' };
+  }
+  if (minutes < openMinutes) {
+    return { state: 'pre', label: '尚未開盤', session: 'TWSE 09:00–13:30 (UTC+8)' };
+  }
+  if (minutes > closeMinutes) {
+    return { state: 'closed', label: '已收盤', session: 'TWSE 09:00–13:30 (UTC+8)' };
+  }
+  return { state: 'open', label: '盤中', session: 'TWSE 09:00–13:30 (UTC+8)' };
+}
 
 function isValidMarketSymbol(symbol) {
   return /^[A-Za-z0-9.^=-]{1,32}$/.test(symbol);
@@ -275,38 +383,127 @@ app.get('/api/chart', async (req, res) => {
     return res.status(400).json({ error: 'Invalid range parameter' });
   }
 
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}&includePrePost=false`;
+  const ttlMs = interval === '5m' ? 60 * 1000 : interval === '30m' ? 5 * 60 * 1000 : 15 * 60 * 1000;
 
   try {
-    const response = await axios.get(url, {
-      timeout: 15000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
-      }
-    });
-
-    const result = response.data.chart?.result?.[0];
+    const body = await fetchYahooJson(chartUrl(symbol, interval, range), ttlMs);
+    const result = body.chart?.result?.[0];
     if (!result || !result.timestamp) {
       return res.status(404).json({ error: 'No chart data available' });
     }
 
-    const quote = result.indicators?.quote?.[0] || {};
-    const timestamps = result.timestamp || [];
-    const data = timestamps
-      .map((timestamp, index) => ({
-        timestamp: timestamp * 1000,
-        open: quote.open?.[index],
-        high: quote.high?.[index],
-        low: quote.low?.[index],
-        close: quote.close?.[index],
-        volume: quote.volume?.[index]
-      }))
-      .filter(point => point.open != null && point.close != null && point.high != null && point.low != null);
-
-    return res.json({ symbol, meta: result.meta || {}, data });
+    const data = normalizeChartResult(result);
+    return res.json({
+      symbol,
+      meta: result.meta || {},
+      data,
+      source: dataSourceInfo(data)
+    });
   } catch (error) {
     return res.status(500).json(yahooErrorPayload('Unable to fetch chart data', error));
   }
+});
+
+function dataSourceInfo(data = []) {
+  const lastBar = data.length ? data[data.length - 1].timestamp : null;
+  return {
+    provider: 'Yahoo Finance',
+    delayMinutes: QUOTE_DELAY_MINUTES,
+    fetchedAt: Date.now(),
+    lastBarAt: lastBar,
+    adjusted: true
+  };
+}
+
+app.get('/api/market-status', (req, res) => {
+  const now = new Date();
+  res.json({
+    taiwan: taiwanMarketStatus(now),
+    crypto: { state: 'open', label: '24/7 交易', session: 'Crypto 全天候' },
+    fetchedAt: now.getTime(),
+    delayMinutes: QUOTE_DELAY_MINUTES
+  });
+});
+
+// USD/TWD lets the client show every asset in one base currency and compute
+// FX-adjusted returns for the mixed TW-equity + crypto list.
+app.get('/api/fx', async (req, res) => {
+  try {
+    const body = await fetchYahooJson(chartUrl('TWD=X', '1d', '1mo'), 15 * 60 * 1000);
+    const result = body.chart?.result?.[0];
+    const closes = (result?.indicators?.quote?.[0]?.close || []).filter(value => Number.isFinite(value));
+    const rate = closes.length ? closes[closes.length - 1] : result?.meta?.regularMarketPrice;
+
+    if (!Number.isFinite(rate)) {
+      return res.status(502).json({ error: 'Unable to resolve USD/TWD rate' });
+    }
+
+    return res.json({
+      pair: 'USDTWD',
+      rate,
+      fetchedAt: Date.now(),
+      provider: 'Yahoo Finance',
+      delayMinutes: QUOTE_DELAY_MINUTES
+    });
+  } catch (error) {
+    return res.status(502).json(yahooErrorPayload('Unable to fetch FX rate', error));
+  }
+});
+
+const MAX_BATCH_SYMBOLS = 20;
+
+// Batch daily history for the screener: portfolio weights, the correlation
+// matrix and since-added returns all need the same series, so they are fetched
+// once and shared through the upstream cache.
+app.get('/api/history', async (req, res) => {
+  const raw = (req.query.symbols || '').trim();
+  const range = req.query.range || '1y';
+
+  if (!raw) {
+    return res.status(400).json({ error: 'Missing symbols parameter' });
+  }
+  if (!validRanges.has(range)) {
+    return res.status(400).json({ error: 'Invalid range parameter' });
+  }
+
+  const symbols = Array.from(new Set(raw.split(',').map(symbol => symbol.trim()).filter(Boolean)));
+  if (!symbols.length) {
+    return res.status(400).json({ error: 'Missing symbols parameter' });
+  }
+  if (symbols.length > MAX_BATCH_SYMBOLS) {
+    return res.status(400).json({ error: `At most ${MAX_BATCH_SYMBOLS} symbols per request` });
+  }
+  if (!symbols.every(isValidMarketSymbol)) {
+    return res.status(400).json({ error: 'Invalid symbol parameter' });
+  }
+
+  const settled = await Promise.allSettled(symbols.map(async symbol => {
+    const body = await fetchYahooJson(chartUrl(symbol, '1d', range), 15 * 60 * 1000);
+    const result = body.chart?.result?.[0];
+    if (!result || !result.timestamp) throw new Error('No chart data available');
+    return { symbol, data: normalizeChartResult(result), currency: result.meta?.currency || null };
+  }));
+
+  const series = {};
+  const failed = [];
+  settled.forEach((outcome, index) => {
+    if (outcome.status === 'fulfilled') {
+      series[outcome.value.symbol] = outcome.value;
+    } else {
+      failed.push(symbols[index]);
+    }
+  });
+
+  if (!Object.keys(series).length) {
+    return res.status(502).json({ error: 'Unable to fetch history for any requested symbol', failed });
+  }
+
+  return res.json({
+    range,
+    series,
+    failed,
+    source: { provider: 'Yahoo Finance', delayMinutes: QUOTE_DELAY_MINUTES, fetchedAt: Date.now(), adjusted: true }
+  });
 });
 
 app.get('/api/news', async (req, res) => {
@@ -321,28 +518,34 @@ app.get('/api/news', async (req, res) => {
   const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}`;
 
   try {
-    const response = await axios.get(url, {
-      timeout: 15000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
-      }
-    });
+    const body = await fetchYahooJson(url, 5 * 60 * 1000);
 
-    let news = response.data.news || [];
+    let news = body.news || [];
     if (!news.length) {
-      const quotes = response.data.quotes || [];
+      const quotes = body.quotes || [];
       news = quotes.flatMap(q => q.news || []);
     }
 
+    // Yahoo repeats the same story across syndication partners; dedupe on the
+    // normalized headline so sentiment is not counted twice.
+    const seen = new Set();
     const items = news
-      .slice(0, 20)
       .map(n => ({
+        symbol,
         title: n.title,
         link: n.link,
         publisher: n.publisher,
         providerPublishTime: n.providerPublishTime,
         summary: n.summary
-      }));
+      }))
+      .filter(item => {
+        const key = normalize(item.title || '').slice(0, 80);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => (b.providerPublishTime || 0) - (a.providerPublishTime || 0))
+      .slice(0, 20);
 
     return res.json(items);
   } catch (error) {

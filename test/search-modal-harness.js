@@ -211,10 +211,16 @@ function startServer() {
       throw new Error(`Official website link did not render correctly: href=${websiteLink} text=${websiteText}`);
     }
 
+    // The signal engine now lives on its own tab, so it must be opened before
+    // its panel can be asserted against.
+    await page.click('button[data-view="signal"]');
     await page.waitForSelector('#viewDetailsBtn', { timeout: STEP_TIMEOUT });
     const strategyText = await page.innerText('#strategyPanel');
-    if (!strategyText.includes('Auto Buy/Sell Strategy') || !strategyText.includes('30-day daily trend')) {
-      throw new Error(`Strategy panel does not describe the automatic 30-day strategy source:\n${strategyText}`);
+    if (!strategyText.includes('訊號引擎') || !strategyText.includes('ADX')) {
+      throw new Error(`Strategy panel does not describe the multi-horizon signal engine:\n${strategyText}`);
+    }
+    if (!strategyText.includes('信心度')) {
+      throw new Error('Strategy panel is missing the numeric confidence readout.');
     }
 
     await page.click('#viewDetailsBtn');
@@ -229,10 +235,13 @@ function startServer() {
     await page.click('#modalCloseBtn');
     await page.waitForFunction(() => !document.querySelector('#strategyModal').classList.contains('show'), null, { timeout: STEP_TIMEOUT });
 
+    await page.click('button[data-view="overview"]');
     const tabButton = await page.waitForSelector('button[data-interval="30m"][data-range="5d"]', { timeout: STEP_TIMEOUT });
     const [chartResponse2, strategyChartResponse] = await Promise.all([
       page.waitForResponse(response => response.url().includes('/api/chart?symbol=') && response.url().includes('interval=30m') && response.url().includes('range=5d') && response.status() === 200, { timeout: STEP_TIMEOUT }),
-      page.waitForResponse(response => response.url().includes('/api/chart?symbol=') && response.url().includes('interval=1d') && response.url().includes('range=1mo') && response.status() === 200, { timeout: STEP_TIMEOUT }),
+      // The signal engine always reloads two years of daily bars, regardless of
+      // the interval selected for the displayed chart.
+      page.waitForResponse(response => response.url().includes('/api/chart?symbol=') && response.url().includes('interval=1d') && response.url().includes('range=2y') && response.status() === 200, { timeout: STEP_TIMEOUT }),
       tabButton.click()
     ]);
     if (!chartResponse2.ok() || !strategyChartResponse.ok()) {
@@ -252,7 +261,7 @@ function startServer() {
     await page.waitForFunction(() => document.querySelector('#itemSummary')?.innerText.includes('BTC-USD'), null, { timeout: STEP_TIMEOUT });
     await page.waitForTimeout(1000);
     const finalSummaryText = await page.innerText('#itemSummary');
-    if (!finalSummaryText.includes('BTC-USD') || !finalSummaryText.includes('50,120.00 USD')) {
+    if (!finalSummaryText.includes('BTC-USD') || !finalSummaryText.includes('最新價 (USD)') || !finalSummaryText.includes('50,120.00')) {
       throw new Error(`Stale market-data response overwrote the latest selection:\n${finalSummaryText}`);
     }
 
