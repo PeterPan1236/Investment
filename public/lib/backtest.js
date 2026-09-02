@@ -11,16 +11,16 @@
 (function (global) {
   const COST_MODELS = {
     tw: {
-      label: '台股',
+      label: 'Taiwan equities',
       buyCost: 0.001425,
       sellCost: 0.001425 + 0.003,
-      note: '手續費 0.1425%（未折扣）＋ 賣出證交稅 0.3%'
+      note: '0.1425% commission (undiscounted) plus 0.3% securities transaction tax on sales'
     },
     crypto: {
       label: 'Crypto',
       buyCost: 0.001,
       sellCost: 0.001,
-      note: '交易所 taker 費率 0.1%（雙邊）'
+      note: '0.1% exchange taker fee on both sides'
     }
   };
 
@@ -51,7 +51,7 @@
   function runBacktest({ points = [], symbol = '', type = '', from = null, to = null } = {}) {
     const ready = sliceByDate(points.filter(point => point.ready), from, to);
     if (ready.length < 40) {
-      return { available: false, reason: `回測需要至少 40 根可用日線，目前只有 ${ready.length} 根。` };
+      return { available: false, reason: `A backtest needs at least 40 usable daily bars; only ${ready.length} are available.` };
     }
 
     const costs = costModelFor(symbol, type);

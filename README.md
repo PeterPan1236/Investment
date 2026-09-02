@@ -3,22 +3,24 @@
 Simple Stock & Crypto analysis web UI for Taiwan-listed equities (TWD) and major cryptocurrencies (USD).
 
 Features
-- Search stocks and crypto (fuzzy, CN/EN/ticker)
-- K-line (candlestick) charts with volume, MA20/60/200 and past signal flips marked on the price
-- Time interval toggles (分/時/天/月), TWD/USD base-currency toggle with FX-adjusted values
-- Per-asset news with relevance mapping and sentiment tags (unmapped market-wire stories are excluded from scoring)
+- Search stocks and crypto (fuzzy, English name / Chinese alias / ticker)
+- K-line (candlestick) charts with volume, MA20/60/200 and past signal flips marked on the price. Daily-interval averages are warmed up from the two-year signal series, so a one-month window still draws a full MA200; an average with no plottable point in the window is dropped rather than shown as an empty legend entry
+- Time interval toggles (5m / 30m / 1D / 1M), TWD/USD base-currency toggle with FX-adjusted values
+- Per-asset news from Yahoo's symbol-scoped headline feed, with relevance mapping and sentiment tags (unmapped market-wire stories are excluded from scoring)
 - Signal engine: multi-horizon MA alignment, ADX trend-strength gate, ATR volatility regime, volume confirmation, numeric 0-100 confidence
 - Published signal track record: every past flip with hit rate and average P&L
 - Forecast as a P10/P50/P90 distribution — no point price targets
 - Backtest tab: signal vs buy-and-hold, net of TW (0.1425% fee + 0.3% tax) or crypto (0.1% taker) costs, with Sharpe, max drawdown, turnover and cost drag
 - Portfolio tab: inverse-volatility or equal weights, cash sleeve, correlation heatmap, risk contributions and correlation-aware effective bets
-- Screener tab: the universe carries at most two crypto names (BTC, ETH) because crypto correlations are too high for a longer list to add diversification; user-set criteria produce the list; per-name entry price, target, stop and invalidation are stored locally, and any thesis unreviewed for 90+ days is flagged 待覆核
+- Screener tab: the universe carries at most two crypto names (BTC, ETH) because crypto correlations are too high for a longer list to add diversification; user-set criteria produce the list; per-name entry price, target, stop and invalidation are stored locally, and any thesis unreviewed for 90+ days is flagged "Needs review"
+- Printable PDF signal report: enabled once an instrument is selected, it prints the current state, indicators, reference levels, probability bands and track record through the browser's own print-to-PDF (no PDF dependency)
 - Prominent disclaimer, data-source/delay banner, market-session state, and a published methodology write-up
+- English UI throughout; Chinese company names remain searchable as aliases
 
 Positioning
 - The list is **screener output**, not a recommendation list. Nothing is ranked by conviction and no advice is offered.
-- All returns shown are pre-tax. See the in-app 稅務與幣別說明 for TW dividend vs overseas-income treatment.
-- If this is ever opened to the public in Taiwan, get local counsel on whether the feature set touches 投顧 licensing.
+- All returns shown are pre-tax. See the in-app "Tax & currency notes" for TW dividend vs overseas-income treatment.
+- If this is ever opened to the public in Taiwan, get local counsel on whether the feature set touches investment-advisory (投顧) licensing.
 
 Quickstart
 1. Install dependencies:
@@ -41,7 +43,7 @@ Notes
 - The server proxies Yahoo Finance for chart, news, FX and batch-history data, with an in-process response cache and per-IP rate limiting.
 - Prices are split/dividend adjusted (`adjClose`); raw OHLC is used only for candle rendering.
 - Client analytics live in `public/lib/` (`indicators`, `signal`, `forecast`, `backtest`, `portfolio`, `screener`) and are shared by every view.
-- Taiwan market holidays are not encoded; a weekday outside session hours reports 已收盤 and the last bar timestamp is always shown.
+- Taiwan market holidays are not encoded; a weekday outside session hours reports "Closed" and the last bar timestamp is always shown.
 
 Regression test
 ```bash

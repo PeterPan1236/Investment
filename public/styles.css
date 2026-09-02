@@ -49,6 +49,9 @@
   --chart-ma10: #91cc75;
   --chart-ma20: #fac858;
   --chart-volume: rgba(0, 122, 255, 0.34);
+  --chart-heatmap-mid: #f4f6fb;
+  --chart-heatmap-label: #111827;
+  --chart-split-area: rgba(17, 24, 39, 0.03);
 }
 
 :root[data-theme="dark"] {
@@ -101,6 +104,9 @@
   --chart-ma10: #9fe08d;
   --chart-ma20: #ffd166;
   --chart-volume: rgba(94, 177, 255, 0.30);
+  --chart-heatmap-mid: #16213a;
+  --chart-heatmap-label: #e6edf7;
+  --chart-split-area: rgba(226, 232, 240, 0.04);
 }
 
 * {
@@ -309,9 +315,15 @@ a:focus-visible {
 .refresh-button {
   min-width: 132px;
   padding: 0 18px;
-  color: var(--primary-button-ink);
-  background: var(--primary-button-bg);
-  box-shadow: var(--control-shadow);
+  color: var(--action-text);
+  background: var(--surface-solid);
+  border-color: var(--line-strong);
+  box-shadow: none;
+}
+
+.refresh-button:hover:not(:disabled) {
+  border-color: var(--action-text);
+  background: var(--surface-subtle);
 }
 
 .refresh-button.is-loading {
@@ -1894,5 +1906,305 @@ body.modal-open {
   .data-table th,
   .data-table td {
     padding: 8px 10px;
+  }
+}
+
+/* ── Report button & printable sheet ─────────────────────── */
+
+.report-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 208px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--primary-button-ink);
+  background: var(--primary-button-bg);
+  box-shadow: var(--control-shadow);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.report-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--hover-shadow), var(--control-shadow);
+}
+
+.report-button:disabled {
+  color: var(--muted);
+  border-color: var(--line);
+  background: var(--surface-solid);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.report-button.is-loading {
+  cursor: wait;
+}
+
+.report-button-icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.report-hint {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+/* The sheet only exists for printing; it never occupies screen layout. */
+.report-sheet {
+  display: none;
+}
+
+@media print {
+  .app-shell,
+  .modal {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #ffffff;
+    color: #111827;
+  }
+
+  .report-sheet {
+    display: block;
+    padding: 0;
+    color: #111827;
+    background: #ffffff;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+
+  .report-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16pt;
+    padding-bottom: 10pt;
+    border-bottom: 2pt solid #111827;
+  }
+
+  .report-eyebrow {
+    margin: 0 0 4pt;
+    font-size: 8.5pt;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #475467;
+  }
+
+  .report-head h1 {
+    margin: 0;
+    font-size: 20pt;
+    line-height: 1.15;
+  }
+
+  .report-head h1 span {
+    font-size: 13pt;
+    font-weight: 600;
+    color: #475467;
+  }
+
+  .report-sub {
+    margin: 4pt 0 0;
+    font-size: 9pt;
+    color: #475467;
+  }
+
+  .report-state {
+    min-width: 150pt;
+    padding: 8pt 12pt;
+    border: 1.5pt solid #111827;
+    border-radius: 4pt;
+    text-align: right;
+  }
+
+  .report-state span {
+    display: block;
+    font-size: 8pt;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #475467;
+  }
+
+  .report-state strong {
+    display: block;
+    margin: 2pt 0;
+    font-size: 16pt;
+  }
+
+  .report-state-buy { border-color: #1f9d55; }
+  .report-state-buy strong { color: #1f9d55; }
+  .report-state-sell { border-color: #d92d20; }
+  .report-state-sell strong { color: #d92d20; }
+
+  .report-callout {
+    margin: 10pt 0 0;
+    padding: 8pt 10pt;
+    border-left: 3pt solid #ff9f0a;
+    background: #fdf6e7;
+    font-size: 9pt;
+  }
+
+  .report-section {
+    margin-top: 14pt;
+    break-inside: avoid;
+  }
+
+  .report-section h2 {
+    margin: 0 0 6pt;
+    padding-bottom: 3pt;
+    border-bottom: 0.75pt solid #d0d5dd;
+    font-size: 11.5pt;
+  }
+
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+  }
+
+  .report-table th,
+  .report-table td {
+    padding: 4pt 6pt;
+    border-bottom: 0.5pt solid #e4e7ec;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .report-table th[scope="row"] {
+    width: 38%;
+    font-weight: 600;
+    color: #475467;
+  }
+
+  .report-table-grid thead th {
+    border-bottom: 0.75pt solid #98a2b3;
+    font-size: 8.5pt;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #475467;
+  }
+
+  .report-drivers {
+    margin: 8pt 0 0;
+    padding-left: 14pt;
+    list-style: disc outside;
+    font-size: 9.5pt;
+  }
+
+  .report-drivers li {
+    margin-bottom: 3pt;
+  }
+
+  .driver-positive { color: #1f6f42; }
+  .driver-negative { color: #a72118; }
+
+  .report-note {
+    margin: 6pt 0 0;
+    font-size: 8.5pt;
+    color: #475467;
+  }
+
+  .report-disclaimer {
+    break-before: auto;
+    padding: 8pt 10pt;
+    border: 1pt solid #d0d5dd;
+    border-radius: 4pt;
+    background: #f9fafb;
+  }
+
+  .report-disclaimer ul {
+    margin: 0;
+    padding-left: 14pt;
+    list-style: disc outside;
+    font-size: 9pt;
+  }
+
+  .report-disclaimer li {
+    margin-bottom: 3pt;
+  }
+
+  .report-footer {
+    margin-top: 12pt;
+    padding-top: 6pt;
+    border-top: 0.75pt solid #d0d5dd;
+    font-size: 8pt;
+    color: #667085;
+    display: flex;
+    justify-content: space-between;
+    gap: 12pt;
+  }
+
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+}
+
+/* ── Narrow-viewport containment ─────────────────────────── */
+
+/*
+ * Grid and flex items default to min-width: auto, so a wide table or metric
+ * grid pushes its container past the viewport instead of scrolling inside it.
+ * Every layout box on the page opts out of that intrinsic floor; only the
+ * scroll containers are allowed to hold overflowing content.
+ */
+.workspace,
+.workspace > .view,
+.view > .panel,
+.view > section,
+.panel,
+.strategy-box,
+.strategy-summary,
+.strategy-header,
+.forecast-panel,
+.summary-panel,
+.search-panel,
+.screen-card,
+.panel-head,
+.control-row,
+.stat-row,
+.split-grid {
+  min-width: 0;
+}
+
+.table-scroll {
+  min-width: 0;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.data-table {
+  min-width: max-content;
+}
+
+@media (max-width: 720px) {
+  /* Long headline text in a table cell is what makes the min-content width
+     explode; the scroll container handles the rest. */
+  .data-table th,
+  .data-table td {
+    white-space: nowrap;
+  }
+
+  .control-row .control {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  .control-row select,
+  .control-row input {
+    width: 100%;
+    min-width: 0;
   }
 }

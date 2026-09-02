@@ -126,7 +126,7 @@
     const { weights, volatilities, cashWeight } = sizing;
     const overlap = Math.min(...symbols.map(symbol => returns[symbol].length));
     if (!symbols.length || overlap < MINIMUM_OVERLAP) {
-      return { available: false, reason: `重疊的日報酬樣本不足（需要 ${MINIMUM_OVERLAP} 天，目前 ${Number.isFinite(overlap) ? overlap : 0} 天）。` };
+      return { available: false, reason: `Not enough overlapping daily returns (${MINIMUM_OVERLAP} days required, ${Number.isFinite(overlap) ? overlap : 0} available).` };
     }
 
     const covarianceMatrix = symbols.map(rowSymbol => symbols.map(columnSymbol => (
@@ -168,7 +168,12 @@
     ), 0);
     const diversificationRatio = annualizedVolatility ? weightedAverageVolatility / annualizedVolatility : null;
     const investedWeight = weightVector.reduce((sum, value) => sum + value, 0);
-    const herfindahl = weightVector.reduce((sum, value) => sum + value * value, 0);
+    // HHI is only meaningful on weights that sum to 1, so the risky sleeve is
+    // renormalized first. Using raw weights inflates 1/HHI by 1/investedWeight²
+    // and can report more effective positions than the book actually holds.
+    const herfindahl = investedWeight
+      ? weightVector.reduce((sum, value) => sum + (value / investedWeight) * (value / investedWeight), 0)
+      : 0;
 
     const correlations = correlationMatrix(matrix);
     const offDiagonal = [];

@@ -207,7 +207,7 @@ function startServer() {
     await page.waitForSelector('#websiteBox a', { timeout: STEP_TIMEOUT });
     const websiteLink = await page.getAttribute('#websiteBox a', 'href');
     const websiteText = await page.innerText('#websiteBox a');
-    if (!websiteLink || websiteLink === '#' || !websiteText || websiteText.includes('無法取得')) {
+    if (!websiteLink || websiteLink === '#' || !websiteText || websiteText.includes('Not available')) {
       throw new Error(`Official website link did not render correctly: href=${websiteLink} text=${websiteText}`);
     }
 
@@ -216,10 +216,10 @@ function startServer() {
     await page.click('button[data-view="signal"]');
     await page.waitForSelector('#viewDetailsBtn', { timeout: STEP_TIMEOUT });
     const strategyText = await page.innerText('#strategyPanel');
-    if (!strategyText.includes('訊號引擎') || !strategyText.includes('ADX')) {
+    if (!strategyText.includes('Signal engine') || !strategyText.includes('ADX')) {
       throw new Error(`Strategy panel does not describe the multi-horizon signal engine:\n${strategyText}`);
     }
-    if (!strategyText.includes('信心度')) {
+    if (!strategyText.includes('Confidence')) {
       throw new Error('Strategy panel is missing the numeric confidence readout.');
     }
 
@@ -261,7 +261,7 @@ function startServer() {
     await page.waitForFunction(() => document.querySelector('#itemSummary')?.innerText.includes('BTC-USD'), null, { timeout: STEP_TIMEOUT });
     await page.waitForTimeout(1000);
     const finalSummaryText = await page.innerText('#itemSummary');
-    if (!finalSummaryText.includes('BTC-USD') || !finalSummaryText.includes('最新價 (USD)') || !finalSummaryText.includes('50,120.00')) {
+    if (!finalSummaryText.includes('BTC-USD') || !finalSummaryText.includes('Last price (USD)') || !finalSummaryText.includes('50,120.00')) {
       throw new Error(`Stale market-data response overwrote the latest selection:\n${finalSummaryText}`);
     }
 

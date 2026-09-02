@@ -58,15 +58,15 @@ export function taiwanMarketStatus(now = new Date()) {
   const session = 'TWSE 09:00–13:30 (UTC+8)';
 
   if (parts.weekday === 'Sat' || parts.weekday === 'Sun') {
-    return { state: 'closed', label: '休市（週末）', session };
+    return { state: 'closed', label: 'Closed (weekend)', session };
   }
   if (minutes < 9 * 60) {
-    return { state: 'pre', label: '尚未開盤', session };
+    return { state: 'pre', label: 'Pre-open', session };
   }
   if (minutes > 13 * 60 + 30) {
-    return { state: 'closed', label: '已收盤', session };
+    return { state: 'closed', label: 'Closed', session };
   }
-  return { state: 'open', label: '盤中', session };
+  return { state: 'open', label: 'Open', session };
 }
 
 export function isValidMarketSymbol(symbol) {
@@ -78,8 +78,8 @@ const US_EXCHANGE_CODES = new Set(['nms', 'ngm', 'ncm', 'nyq', 'ase', 'pcx', 'bt
 export function guessMarketFromExchange(exchange, quoteType) {
   if (!exchange) return undefined;
   const normalized = exchange.toLowerCase();
-  if (normalized.includes('tai')) return '上市';
-  if (normalized.includes('otc') || normalized.includes('tpe')) return '上櫃';
+  if (normalized.includes('tai')) return 'TWSE';
+  if (normalized.includes('otc') || normalized.includes('tpe')) return 'TPEx';
   if (normalized.includes('crypto') || normalized.includes('binance') || normalized.includes('coinbase') || quoteType === 'CRYPTOCURRENCY') return 'Crypto';
   if (US_EXCHANGE_CODES.has(normalized) || normalized.includes('nasdaq') || normalized.includes('nyse') || normalized.includes('nysemkt')) return 'US';
   return exchange;

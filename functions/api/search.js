@@ -6,7 +6,7 @@ export async function onRequestGet({ request }) {
   const query = (searchParams.get('query') || '').trim();
 
   if (!query) {
-    return Response.json(searchItems.slice(0, 30));
+    return Response.json({ error: 'Missing query parameter' }, { status: 400 });
   }
 
   const lower = normalize(query);

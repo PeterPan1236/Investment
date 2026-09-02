@@ -1,64 +1,624 @@
 [
-  { "symbol": "2330.TW", "name": "台積電", "english": "TSMC", "type": "stock", "market": "上市" },
-  { "symbol": "2317.TW", "name": "鴻海", "english": "Hon Hai", "type": "stock", "market": "上市" },
-  { "symbol": "2454.TW", "name": "聯發科", "english": "MediaTek", "type": "stock", "market": "上市" },
-  { "symbol": "2303.TW", "name": "聯電", "english": "UMC", "type": "stock", "market": "上市" },
-  { "symbol": "2412.TW", "name": "中華電", "english": "Chunghwa Telecom", "type": "stock", "market": "上市" },
-  { "symbol": "6505.TW", "name": "台塑化", "english": "Formosa Petrochemical", "type": "stock", "market": "上市" },
-  { "symbol": "1301.TW", "name": "台塑", "english": "Formosa Plastics", "type": "stock", "market": "上市" },
-  { "symbol": "1303.TW", "name": "南亞", "english": "Nan Ya Plastics", "type": "stock", "market": "上市" },
-  { "symbol": "2882.TW", "name": "國泰金", "english": "Cathay Financial", "type": "stock", "market": "上市" },
-  { "symbol": "2881.TW", "name": "富邦金", "english": "Fubon Financial", "type": "stock", "market": "上市" },
-  { "symbol": "2891.TW", "name": "中信金", "english": "CTBC Financial", "type": "stock", "market": "上市" },
-  { "symbol": "2886.TW", "name": "兆豐金", "english": "Mega Financial", "type": "stock", "market": "上市" },
-  { "symbol": "2308.TW", "name": "台達電", "english": "Delta Electronics", "type": "stock", "market": "上市" },
-  { "symbol": "9910.TW", "name": "豐泰", "english": "Forward Electronics", "type": "stock", "market": "上市" },
-  { "symbol": "4938.TW", "name": "和碩", "english": "Pegatron", "type": "stock", "market": "上市" },
-  { "symbol": "2884.TW", "name": "玉山金", "english": "ESUN Financial", "type": "stock", "market": "上市" },
-  { "symbol": "2413.TW", "name": "環球晶", "english": "GlobalWafers", "type": "stock", "market": "上市" },
-  { "symbol": "6285.TW", "name": "啟碁", "english": "Qisda", "type": "stock", "market": "上市" },
-  { "symbol": "3481.TW", "name": "群創", "english": "Innolux", "type": "stock", "market": "上市" },
-  { "symbol": "3711.TW", "name": "日月光投控", "english": "ASE Technology", "type": "stock", "market": "上市" },
-  { "symbol": "3231.TW", "name": "緯創", "english": "Wistron", "type": "stock", "market": "上市" },
-  { "symbol": "5871.TW", "name": "中租-KY", "english": "Chailease Holding", "type": "stock", "market": "上市" },
-  { "symbol": "2892.TW", "name": "第一金", "english": "First Financial", "type": "stock", "market": "上市" },
-  { "symbol": "2382.TW", "name": "廣達", "english": "Quanta Computer", "type": "stock", "market": "上市" },
-  { "symbol": "1326.TW", "name": "台化", "english": "Formosa Chemicals", "type": "stock", "market": "上市" },
-  { "symbol": "2456.TW", "name": "奇力新", "english": "Walsin Lihwa", "type": "stock", "market": "上市" },
-  { "symbol": "2890.TW", "name": "永豐金", "english": "SinoPac Financial", "type": "stock", "market": "上市" },
-  { "symbol": "2897.TW", "name": "王道銀行", "english": "O-Bank", "type": "stock", "market": "上市" },
-  { "symbol": "3008.TW", "name": "大立光", "english": "Largan Precision", "type": "stock", "market": "上市" },
-  { "symbol": "2618.TW", "name": "長榮航", "english": "Eva Airways", "type": "stock", "market": "上市" },
-  { "symbol": "2207.TW", "name": "和泰車", "english": "Hotai Motor", "type": "stock", "market": "上市" },
-  { "symbol": "5876.TW", "name": "上海商銀", "english": "Shanghai Commercial Bank", "type": "stock", "market": "上市" },
-  { "symbol": "2324.TW", "name": "仁寶", "english": "Compal Electronics", "type": "stock", "market": "上市" },
-  { "symbol": "2883.TW", "name": "開發金", "english": "China Development Financial", "type": "stock", "market": "上市" },
-  { "symbol": "2603.TW", "name": "長榮", "english": "Evergreen Marine", "type": "stock", "market": "上市" },
-  { "symbol": "1216.TW", "name": "統一", "english": "Uni-President", "type": "stock", "market": "上市" },
-  { "symbol": "2002.TW", "name": "中鋼", "english": "CSC", "type": "stock", "market": "上市" },
-  { "symbol": "6488.TW", "name": "環球晶", "english": "GlobalWafers", "type": "stock", "market": "上市" },
-  { "symbol": "5880.TW", "name": "合庫金", "english": "Taiwan Cooperative Financial", "type": "stock", "market": "上市" },
-  { "symbol": "2357.TW", "name": "華碩", "english": "ASUS", "type": "stock", "market": "上市" },
-  { "symbol": "2515.TW", "name": "中興電", "english": "Chunghwa Picture Tubes", "type": "stock", "market": "上市" },
-  { "symbol": "4930.TW", "name": "燿華", "english": "Yageo", "type": "stock", "market": "上市" },
-  { "symbol": "1536.TW", "name": "和大", "english": "Hota Industrial Manufacturing", "type": "stock", "market": "上市" },
-  { "symbol": "6533.TW", "name": "晶心科", "english": "Andes Technology", "type": "stock", "market": "上櫃" },
-  { "symbol": "6414.TW", "name": "樺漢", "english": "Adlink Technology", "type": "stock", "market": "上櫃" },
-  { "symbol": "6409.TW", "name": "旭隼", "english": "Sunplus Technology", "type": "stock", "market": "上櫃" },
-  { "symbol": "6645.TW", "name": "美晶", "english": "EPOCH Microelectronics", "type": "stock", "market": "上櫃" },
-  { "symbol": "3167.TW", "name": "禾伸堂", "english": "HeShenTang", "type": "stock", "market": "上櫃" },
-  { "symbol": "4976.TW", "name": "佳邦", "english": "GKB", "type": "stock", "market": "上櫃" },
-  { "symbol": "3227.TW", "name": "原相", "english": "PixArt Imaging", "type": "stock", "market": "上櫃" },
-  { "symbol": "5274.TW", "name": "信驊", "english": "Inventec", "type": "stock", "market": "上櫃" },
-  { "symbol": "6547.TW", "name": "光洋科", "english": "Quanta Display", "type": "stock", "market": "上櫃" },
-  { "symbol": "8069.TW", "name": "元太", "english": "E Ink Holdings", "type": "stock", "market": "上櫃" },
-  { "symbol": "8446.TW", "name": "華研", "english": "Hwa Yen", "type": "stock", "market": "興櫃" },
-  { "symbol": "8229.TW", "name": "超眾", "english": "Supermicro", "type": "stock", "market": "興櫃" },
-  { "symbol": "8078.TW", "name": "尖點", "english": "Point Engineering", "type": "stock", "market": "興櫃" },
-  { "symbol": "6871.TW", "name": "友訊", "english": "D-Link", "type": "stock", "market": "興櫃" },
-  { "symbol": "6976.TW", "name": "皇家", "english": "Royal", "type": "stock", "market": "興櫃" },
-  { "symbol": "8482.TW", "name": "慶騰", "english": "KingTehn", "type": "stock", "market": "興櫃" },
-  { "symbol": "8215.TW", "name": "明基材", "english": "BenQ Materials", "type": "stock", "market": "上櫃", "aliases": ["明基材料", "明基材股份"] },
-  { "symbol": "3664.TWO", "name": "安瑞-KY", "english": "Anrui-KY", "type": "stock", "market": "上櫃" },
-  { "symbol": "3455.TWO", "name": "由田", "english": "Yutian", "type": "stock", "market": "上櫃" }
+  {
+    "symbol": "2330.TW",
+    "name": "TSMC",
+    "english": "TSMC",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "台積電"
+    ]
+  },
+  {
+    "symbol": "2317.TW",
+    "name": "Hon Hai",
+    "english": "Hon Hai",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "鴻海"
+    ]
+  },
+  {
+    "symbol": "2454.TW",
+    "name": "MediaTek",
+    "english": "MediaTek",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "聯發科"
+    ]
+  },
+  {
+    "symbol": "2303.TW",
+    "name": "UMC",
+    "english": "UMC",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "聯電"
+    ]
+  },
+  {
+    "symbol": "2412.TW",
+    "name": "Chunghwa Telecom",
+    "english": "Chunghwa Telecom",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "中華電"
+    ]
+  },
+  {
+    "symbol": "6505.TW",
+    "name": "Formosa Petrochemical",
+    "english": "Formosa Petrochemical",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "台塑化"
+    ]
+  },
+  {
+    "symbol": "1301.TW",
+    "name": "Formosa Plastics",
+    "english": "Formosa Plastics",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "台塑"
+    ]
+  },
+  {
+    "symbol": "1303.TW",
+    "name": "Nan Ya Plastics",
+    "english": "Nan Ya Plastics",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "南亞"
+    ]
+  },
+  {
+    "symbol": "2882.TW",
+    "name": "Cathay Financial",
+    "english": "Cathay Financial",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "國泰金"
+    ]
+  },
+  {
+    "symbol": "2881.TW",
+    "name": "Fubon Financial",
+    "english": "Fubon Financial",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "富邦金"
+    ]
+  },
+  {
+    "symbol": "2891.TW",
+    "name": "CTBC Financial",
+    "english": "CTBC Financial",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "中信金"
+    ]
+  },
+  {
+    "symbol": "2886.TW",
+    "name": "Mega Financial",
+    "english": "Mega Financial",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "兆豐金"
+    ]
+  },
+  {
+    "symbol": "2308.TW",
+    "name": "Delta Electronics",
+    "english": "Delta Electronics",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "台達電"
+    ]
+  },
+  {
+    "symbol": "9910.TW",
+    "name": "Forward Electronics",
+    "english": "Forward Electronics",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "豐泰"
+    ]
+  },
+  {
+    "symbol": "4938.TW",
+    "name": "Pegatron",
+    "english": "Pegatron",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "和碩"
+    ]
+  },
+  {
+    "symbol": "2884.TW",
+    "name": "ESUN Financial",
+    "english": "ESUN Financial",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "玉山金"
+    ]
+  },
+  {
+    "symbol": "2413.TW",
+    "name": "GlobalWafers",
+    "english": "GlobalWafers",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "環球晶"
+    ]
+  },
+  {
+    "symbol": "6285.TW",
+    "name": "Qisda",
+    "english": "Qisda",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "啟碁"
+    ]
+  },
+  {
+    "symbol": "3481.TW",
+    "name": "Innolux",
+    "english": "Innolux",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "群創"
+    ]
+  },
+  {
+    "symbol": "3711.TW",
+    "name": "ASE Technology",
+    "english": "ASE Technology",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "日月光投控"
+    ]
+  },
+  {
+    "symbol": "3231.TW",
+    "name": "Wistron",
+    "english": "Wistron",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "緯創"
+    ]
+  },
+  {
+    "symbol": "5871.TW",
+    "name": "Chailease Holding",
+    "english": "Chailease Holding",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "中租-KY"
+    ]
+  },
+  {
+    "symbol": "2892.TW",
+    "name": "First Financial",
+    "english": "First Financial",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "第一金"
+    ]
+  },
+  {
+    "symbol": "2382.TW",
+    "name": "Quanta Computer",
+    "english": "Quanta Computer",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "廣達"
+    ]
+  },
+  {
+    "symbol": "1326.TW",
+    "name": "Formosa Chemicals",
+    "english": "Formosa Chemicals",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "台化"
+    ]
+  },
+  {
+    "symbol": "2456.TW",
+    "name": "Walsin Lihwa",
+    "english": "Walsin Lihwa",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "奇力新"
+    ]
+  },
+  {
+    "symbol": "2890.TW",
+    "name": "SinoPac Financial",
+    "english": "SinoPac Financial",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "永豐金"
+    ]
+  },
+  {
+    "symbol": "2897.TW",
+    "name": "O-Bank",
+    "english": "O-Bank",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "王道銀行"
+    ]
+  },
+  {
+    "symbol": "3008.TW",
+    "name": "Largan Precision",
+    "english": "Largan Precision",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "大立光"
+    ]
+  },
+  {
+    "symbol": "2618.TW",
+    "name": "Eva Airways",
+    "english": "Eva Airways",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "長榮航"
+    ]
+  },
+  {
+    "symbol": "2207.TW",
+    "name": "Hotai Motor",
+    "english": "Hotai Motor",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "和泰車"
+    ]
+  },
+  {
+    "symbol": "5876.TW",
+    "name": "Shanghai Commercial Bank",
+    "english": "Shanghai Commercial Bank",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "上海商銀"
+    ]
+  },
+  {
+    "symbol": "2324.TW",
+    "name": "Compal Electronics",
+    "english": "Compal Electronics",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "仁寶"
+    ]
+  },
+  {
+    "symbol": "2883.TW",
+    "name": "China Development Financial",
+    "english": "China Development Financial",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "開發金"
+    ]
+  },
+  {
+    "symbol": "2603.TW",
+    "name": "Evergreen Marine",
+    "english": "Evergreen Marine",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "長榮"
+    ]
+  },
+  {
+    "symbol": "1216.TW",
+    "name": "Uni-President",
+    "english": "Uni-President",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "統一"
+    ]
+  },
+  {
+    "symbol": "2002.TW",
+    "name": "CSC",
+    "english": "CSC",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "中鋼"
+    ]
+  },
+  {
+    "symbol": "6488.TW",
+    "name": "GlobalWafers",
+    "english": "GlobalWafers",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "環球晶"
+    ]
+  },
+  {
+    "symbol": "5880.TW",
+    "name": "Taiwan Cooperative Financial",
+    "english": "Taiwan Cooperative Financial",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "合庫金"
+    ]
+  },
+  {
+    "symbol": "2357.TW",
+    "name": "ASUS",
+    "english": "ASUS",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "華碩"
+    ]
+  },
+  {
+    "symbol": "2515.TW",
+    "name": "Chunghwa Picture Tubes",
+    "english": "Chunghwa Picture Tubes",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "中興電"
+    ]
+  },
+  {
+    "symbol": "4930.TW",
+    "name": "Yageo",
+    "english": "Yageo",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "燿華"
+    ]
+  },
+  {
+    "symbol": "1536.TW",
+    "name": "Hota Industrial Manufacturing",
+    "english": "Hota Industrial Manufacturing",
+    "type": "stock",
+    "market": "TWSE",
+    "aliases": [
+      "和大"
+    ]
+  },
+  {
+    "symbol": "6533.TW",
+    "name": "Andes Technology",
+    "english": "Andes Technology",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "晶心科"
+    ]
+  },
+  {
+    "symbol": "6414.TW",
+    "name": "Adlink Technology",
+    "english": "Adlink Technology",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "樺漢"
+    ]
+  },
+  {
+    "symbol": "6409.TW",
+    "name": "Sunplus Technology",
+    "english": "Sunplus Technology",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "旭隼"
+    ]
+  },
+  {
+    "symbol": "6645.TW",
+    "name": "EPOCH Microelectronics",
+    "english": "EPOCH Microelectronics",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "美晶"
+    ]
+  },
+  {
+    "symbol": "3167.TW",
+    "name": "HeShenTang",
+    "english": "HeShenTang",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "禾伸堂"
+    ]
+  },
+  {
+    "symbol": "4976.TW",
+    "name": "GKB",
+    "english": "GKB",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "佳邦"
+    ]
+  },
+  {
+    "symbol": "3227.TW",
+    "name": "PixArt Imaging",
+    "english": "PixArt Imaging",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "原相"
+    ]
+  },
+  {
+    "symbol": "5274.TW",
+    "name": "Inventec",
+    "english": "Inventec",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "信驊"
+    ]
+  },
+  {
+    "symbol": "6547.TW",
+    "name": "Quanta Display",
+    "english": "Quanta Display",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "光洋科"
+    ]
+  },
+  {
+    "symbol": "8069.TW",
+    "name": "E Ink Holdings",
+    "english": "E Ink Holdings",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "元太"
+    ]
+  },
+  {
+    "symbol": "8446.TW",
+    "name": "Hwa Yen",
+    "english": "Hwa Yen",
+    "type": "stock",
+    "market": "Emerging",
+    "aliases": [
+      "華研"
+    ]
+  },
+  {
+    "symbol": "8229.TW",
+    "name": "Supermicro",
+    "english": "Supermicro",
+    "type": "stock",
+    "market": "Emerging",
+    "aliases": [
+      "超眾"
+    ]
+  },
+  {
+    "symbol": "8078.TW",
+    "name": "Point Engineering",
+    "english": "Point Engineering",
+    "type": "stock",
+    "market": "Emerging",
+    "aliases": [
+      "尖點"
+    ]
+  },
+  {
+    "symbol": "6871.TW",
+    "name": "D-Link",
+    "english": "D-Link",
+    "type": "stock",
+    "market": "Emerging",
+    "aliases": [
+      "友訊"
+    ]
+  },
+  {
+    "symbol": "6976.TW",
+    "name": "Royal",
+    "english": "Royal",
+    "type": "stock",
+    "market": "Emerging",
+    "aliases": [
+      "皇家"
+    ]
+  },
+  {
+    "symbol": "8482.TW",
+    "name": "KingTehn",
+    "english": "KingTehn",
+    "type": "stock",
+    "market": "Emerging",
+    "aliases": [
+      "慶騰"
+    ]
+  },
+  {
+    "symbol": "8215.TW",
+    "name": "BenQ Materials",
+    "english": "BenQ Materials",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "明基材料",
+      "明基材股份",
+      "明基材"
+    ]
+  },
+  {
+    "symbol": "3664.TWO",
+    "name": "Anrui-KY",
+    "english": "Anrui-KY",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "安瑞-KY"
+    ]
+  },
+  {
+    "symbol": "3455.TWO",
+    "name": "Yutian",
+    "english": "Yutian",
+    "type": "stock",
+    "market": "TPEx",
+    "aliases": [
+      "由田"
+    ]
+  }
 ]

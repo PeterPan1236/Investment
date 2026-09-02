@@ -1,5 +1,5 @@
 import { isValidMarketSymbol } from '../_utils/market.js';
-import { fetchJsonWithTimeout, yahooErrorPayload } from '../_utils/yahoo.js';
+import { fetchJsonWithTimeout, upstreamHttpStatus, yahooErrorPayload } from '../_utils/yahoo.js';
 
 export async function onRequestGet({ request }) {
   const { searchParams } = new URL(request.url);
@@ -45,6 +45,6 @@ export async function onRequestGet({ request }) {
 
     return Response.json(items);
   } catch (error) {
-    return Response.json(yahooErrorPayload('Unable to fetch news', error), { status: 500 });
+    return Response.json(yahooErrorPayload('Unable to fetch news', error), { status: upstreamHttpStatus(error) });
   }
 }

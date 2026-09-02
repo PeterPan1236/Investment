@@ -1,16 +1,16 @@
 import stocks from '../../data/taiwan_stocks.json';
 
 const cryptoList = [
-  { symbol: 'BTC-USD', name: '比特幣', english: 'Bitcoin', type: 'crypto' },
-  { symbol: 'ETH-USD', name: '以太幣', english: 'Ethereum', type: 'crypto' },
-  { symbol: 'USDT-USD', name: '泰達幣', english: 'Tether', type: 'crypto' },
-  { symbol: 'BNB-USD', name: '幣安幣', english: 'BNB', type: 'crypto' },
-  { symbol: 'XRP-USD', name: '瑞波幣', english: 'XRP', type: 'crypto' },
-  { symbol: 'ADA-USD', name: '艾達幣', english: 'Cardano', type: 'crypto' },
-  { symbol: 'SOL-USD', name: '索拉納', english: 'Solana', type: 'crypto' },
-  { symbol: 'DOGE-USD', name: '狗狗幣', english: 'Dogecoin', type: 'crypto' },
-  { symbol: 'DOT-USD', name: '波卡', english: 'Polkadot', type: 'crypto' },
-  { symbol: 'LTC-USD', name: '萊特幣', english: 'Litecoin', type: 'crypto' }
+  { symbol: 'BTC-USD', name: 'Bitcoin', english: 'Bitcoin', type: 'crypto' },
+  { symbol: 'ETH-USD', name: 'Ethereum', english: 'Ethereum', type: 'crypto' },
+  { symbol: 'USDT-USD', name: 'Tether', english: 'Tether', type: 'crypto' },
+  { symbol: 'BNB-USD', name: 'BNB', english: 'BNB', type: 'crypto' },
+  { symbol: 'XRP-USD', name: 'XRP', english: 'XRP', type: 'crypto' },
+  { symbol: 'ADA-USD', name: 'Cardano', english: 'Cardano', type: 'crypto' },
+  { symbol: 'SOL-USD', name: 'Solana', english: 'Solana', type: 'crypto' },
+  { symbol: 'DOGE-USD', name: 'Dogecoin', english: 'Dogecoin', type: 'crypto' },
+  { symbol: 'DOT-USD', name: 'Polkadot', english: 'Polkadot', type: 'crypto' },
+  { symbol: 'LTC-USD', name: 'Litecoin', english: 'Litecoin', type: 'crypto' }
 ];
 
 export const searchItems = [...stocks, ...cryptoList];

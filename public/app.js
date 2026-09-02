@@ -7,6 +7,9 @@ const newsList = document.getElementById('newsList');
 const timeTabs = document.getElementById('timeTabs');
 const refreshButton = document.getElementById('refreshButton');
 const refreshStatus = document.getElementById('refreshStatus');
+const reportButton = document.getElementById('generateReportBtn');
+const reportHint = document.getElementById('reportHint');
+const reportSheet = document.getElementById('reportSheet');
 const chartContainer = document.getElementById('chart');
 const strategyPanel = document.getElementById('strategyPanel');
 const strategyModal = document.getElementById('strategyModal');
@@ -160,16 +163,16 @@ function setPanelMeta(key, parts) {
 }
 
 function sourceLine(extra = []) {
-  return ['資料來源：Yahoo Finance', '報價延遲約 15 分鐘', '價格已還原除權息／分割', ...extra];
+  return ['Source: Yahoo Finance', 'Quotes delayed ~15 min', 'Prices adjusted for splits and dividends', ...extra];
 }
 
 function renderSourceBar() {
   const updated = document.getElementById('sourceUpdated');
-  if (updated) updated.textContent = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+  if (updated) updated.textContent = new Date().toLocaleTimeString('en-GB', { hour12: false });
 
   const twNode = document.getElementById('marketStatusTw');
   if (twNode && state.marketStatus?.taiwan) {
-    twNode.textContent = `${state.marketStatus.taiwan.label}（${state.marketStatus.taiwan.session}）`;
+    twNode.textContent = `${state.marketStatus.taiwan.label} (${state.marketStatus.taiwan.session})`;
     twNode.dataset.state = state.marketStatus.taiwan.state;
   }
 
@@ -200,10 +203,10 @@ async function loadFxRate() {
 /** Taiwan equities only trade in-session, so a stale bar must say so. */
 function marketNoteFor(item) {
   if (!item) return '';
-  if (currencyOf(item) === 'USD') return 'Crypto 24/7 交易';
+  if (currencyOf(item) === 'USD') return 'Crypto trades 24/7';
   const status = state.marketStatus?.taiwan;
   if (!status) return '';
-  return status.state === 'open' ? '台股盤中' : `台股${status.label}，顯示為最後收盤資料`;
+  return status.state === 'open' ? 'Taiwan market open' : `Taiwan market ${status.label}; showing last close`;
 }
 
 /* --------------------------------------------------------- theme / base */
@@ -281,7 +284,7 @@ function saveHistory(query) {
 function renderHistory() {
   historyList.innerHTML = '';
   if (!state.searchHistory.length) {
-    historyList.innerHTML = '<div class="chip is-empty">尚無查詢紀錄</div>';
+    historyList.innerHTML = '<div class="chip is-empty">No recent searches</div>';
     return;
   }
 
@@ -314,7 +317,7 @@ async function performSearch(query, { save = true, autoSelect = false } = {}) {
     items = await fetchJson(`/api/search?query=${encodeURIComponent(trimmed)}`);
   } catch (error) {
     if (requestId !== state.searchRequestId) return;
-    suggestionList.innerHTML = '<div class="suggestion-item">搜尋服務暫時無法使用。</div>';
+    suggestionList.innerHTML = '<div class="suggestion-item">Search is temporarily unavailable.</div>';
     return;
   }
 
@@ -322,7 +325,7 @@ async function performSearch(query, { save = true, autoSelect = false } = {}) {
   suggestionList.innerHTML = '';
 
   if (!items.length) {
-    suggestionList.innerHTML = '<div class="suggestion-item">查無符合的股票或加密資產。</div>';
+    suggestionList.innerHTML = '<div class="suggestion-item">No matching stock or crypto asset.</div>';
     return;
   }
 
@@ -380,11 +383,14 @@ function getChartPalette() {
     ma5: cssVar('--chart-ma5', '#5470c6'),
     ma10: cssVar('--chart-ma10', '#91cc75'),
     ma20: cssVar('--chart-ma20', '#fac858'),
-    volume: cssVar('--chart-volume', 'rgba(0, 122, 255, 0.34)')
+    volume: cssVar('--chart-volume', 'rgba(0, 122, 255, 0.34)'),
+    heatmapMid: cssVar('--chart-heatmap-mid', '#f4f6fb'),
+    heatmapLabel: cssVar('--chart-heatmap-label', '#111827'),
+    splitArea: cssVar('--chart-split-area', 'rgba(17, 24, 39, 0.03)')
   };
 }
 
-function renderChartEmptyState(title = '選擇一檔標的', body = '搜尋標的以載入價格、成交量與均線。') {
+function renderChartEmptyState(title = 'Select an instrument', body = 'Search for an instrument to load price, volume, and moving averages.') {
   if (state.chartInstance) {
     state.chartInstance.dispose();
     state.chartInstance = null;
@@ -407,6 +413,42 @@ function renderChartEmptyState(title = '選擇一檔標的', body = '搜尋標�
 
 function movingAverageSeries(values, period) {
   return TA.sma(values, period).map(value => (value == null ? '-' : Number(value.toFixed(2))));
+}
+
+/**
+ * A 1-month window holds ~22 bars, so an MA computed from the visible window
+ * alone leaves MA60 and MA200 empty. The signal engine already loads two years
+ * of daily bars, so those are used as warm-up and only the visible tail is drawn.
+ */
+function movingAverageOverlays(displayData, closeValues) {
+  let closes = closeValues;
+  let offset = 0;
+
+  if (state.currentInterval === SIGNAL_INTERVAL && state.signalBars.length && displayData.length) {
+    const firstDate = isoDate(displayData[0].timestamp);
+    const startIndex = state.signalBars.findIndex(bar => isoDate(bar.timestamp) === firstDate);
+    if (startIndex > 0) {
+      const warmup = state.signalBars.slice(0, startIndex).map(bar => Number(bar.adjClose ?? bar.close));
+      closes = warmup.concat(closeValues);
+      offset = warmup.length;
+    }
+  }
+
+  // The averages run over bars, not days, so only the daily chart may call them
+  // MA20/MA60/MA200 without qualification.
+  const unit = state.currentInterval === SIGNAL_INTERVAL ? ''
+    : state.currentInterval === '1mo' ? ' (months)'
+      : ' (bars)';
+
+  return [
+    { name: `MA20${unit}`, period: 20, color: 'ma5' },
+    { name: `MA60${unit}`, period: 60, color: 'ma10' },
+    { name: `MA200${unit}`, period: 200, color: 'ma20' }
+  ]
+    .map(ma => ({ ...ma, data: movingAverageSeries(closes, ma.period).slice(offset) }))
+    // An MA with no plottable point in the window is a legend entry pointing at
+    // an invisible line, so it is left out entirely.
+    .filter(ma => ma.data.some(value => value !== '-'));
 }
 
 /**
@@ -434,12 +476,12 @@ function signalMarkPoints(categoryData, data) {
 
 function renderChart(data, selectedItem) {
   if (!data || !data.length) {
-    renderChartEmptyState('沒有圖表資料', '目前無法取得此標的的價格歷史。');
+    renderChartEmptyState('No chart data', 'Price history for this instrument is unavailable right now.');
     return;
   }
 
   if (typeof echarts === 'undefined') {
-    renderChartEmptyState('圖表無法載入', '圖表函式庫載入失敗，其餘市場資料仍可使用。');
+    renderChartEmptyState('Chart failed to load', 'The charting library did not load; the rest of the market data still works.');
     return;
   }
 
@@ -455,6 +497,7 @@ function renderChart(data, selectedItem) {
   }
 
   const marks = signalMarkPoints(categoryData, data);
+  const overlays = movingAverageOverlays(data, closeValues);
 
   state.chartInstance.setOption({
     backgroundColor: 'transparent',
@@ -473,7 +516,7 @@ function renderChart(data, selectedItem) {
       textStyle: { color: palette.ink },
       position: (pos) => [pos[0] + 10, pos[1] - 30]
     },
-    legend: { data: ['Candles', 'MA20', 'MA60', 'MA200', 'Volume'], top: 32, textStyle: { color: palette.muted } },
+    legend: { data: ['Candles', ...overlays.map(ma => ma.name), 'Volume'], top: 32, textStyle: { color: palette.muted } },
     grid: [
       { left: '7%', right: '5%', top: '16%', height: '55%' },
       { left: '7%', right: '5%', top: '76%', height: '15%' }
@@ -515,9 +558,16 @@ function renderChart(data, selectedItem) {
           data: marks
         } : undefined
       },
-      { name: 'MA20', type: 'line', data: movingAverageSeries(closeValues, 20), smooth: true, lineStyle: { color: palette.ma5, opacity: 0.9 }, symbol: 'none' },
-      { name: 'MA60', type: 'line', data: movingAverageSeries(closeValues, 60), smooth: true, lineStyle: { color: palette.ma10, opacity: 0.9 }, symbol: 'none' },
-      { name: 'MA200', type: 'line', data: movingAverageSeries(closeValues, 200), smooth: true, lineStyle: { color: palette.ma20, opacity: 0.9 }, symbol: 'none' },
+      ...overlays.map(ma => ({
+        name: ma.name,
+        type: 'line',
+        data: ma.data,
+        smooth: true,
+        lineStyle: { color: palette[ma.color], opacity: 0.9 },
+        itemStyle: { color: palette[ma.color] },
+        symbol: 'none',
+        connectNulls: false
+      })),
       { name: 'Volume', type: 'bar', xAxisIndex: 1, yAxisIndex: 1, data: volume, itemStyle: { color: palette.volume } }
     ]
   }, true);
@@ -538,29 +588,29 @@ function buildSummary(data = defaultSummary) {
 
   itemSummary.innerHTML = `
     <div class="summary-head">
-      <div class="summary-title">${escapeHTML(data.name || '選擇一檔標的')}</div>
+      <div class="summary-title">${escapeHTML(data.name || 'Select an instrument')}</div>
       ${data.symbol ? `<span class="summary-note">${escapeHTML(marketNoteFor(data))}</span>` : ''}
     </div>
     <div class="summary-row grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2.5">
       <div class="summary-card">
-        <strong>代號 / 市場</strong>
+        <strong>Symbol / market</strong>
         <div class="value">${escapeHTML(data.symbol || '--')} / ${escapeHTML(data.market || (data.type === 'crypto' ? 'Crypto' : '--'))}</div>
       </div>
       <div class="summary-card">
-        <strong>最新價 (${escapeHTML(nativeCurrency)})</strong>
+        <strong>Last price (${escapeHTML(nativeCurrency)})</strong>
         <div class="value">${escapeHTML(data.price ?? '--')}</div>
         ${baseLine}
       </div>
       <div class="summary-card">
-        <strong>漲跌</strong>
+        <strong>Change</strong>
         <div class="value ${toneClass(data.changeRatio)}">${escapeHTML(data.change ?? '--')} (${escapeHTML(data.percent ?? '--')})</div>
       </div>
       <div class="summary-card">
-        <strong>成交量</strong>
+        <strong>Volume</strong>
         <div class="value">${escapeHTML(data.volume ?? '--')}</div>
       </div>
       <div class="summary-card">
-        <strong>最後一根 K 棒</strong>
+        <strong>Last bar</strong>
         <div class="value">${escapeHTML(data.lastBarLabel || '--')}</div>
       </div>
     </div>
@@ -592,7 +642,7 @@ function updateSummaryFromChart(data) {
 function renderNews(news) {
   newsList.innerHTML = '';
   if (!news || !news.length) {
-    newsList.innerHTML = '<div class="news-item">目前沒有可用的相關新聞。</div>';
+    newsList.innerHTML = '<div class="news-item">No related news available.</div>';
     return;
   }
 
@@ -608,13 +658,13 @@ function renderNews(news) {
       <div class="news-top">
         <a href="${safeExternalUrl(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHTML(item.title || 'Untitled')}</a>
         ${relevant
-          ? `<span class="sentiment-tag sentiment-${sentiment.tone}">${sentiment.tone === 'positive' ? '正面' : sentiment.tone === 'negative' ? '負面' : '中性'} ${sentiment.net >= 0 ? '+' : ''}${sentiment.net}</span>`
-          : '<span class="sentiment-tag sentiment-neutral">泛市場 · 未計入</span>'}
+          ? `<span class="sentiment-tag sentiment-${sentiment.tone}">${sentiment.tone === 'positive' ? 'Positive' : sentiment.tone === 'negative' ? 'Negative' : 'Neutral'} ${sentiment.net >= 0 ? '+' : ''}${sentiment.net}</span>`
+          : '<span class="sentiment-tag sentiment-neutral">Broad market · not counted</span>'}
       </div>
       <div class="news-meta">
-        <span>${escapeHTML(relevant ? item.symbol || state.selectedItem?.symbol || '' : '未對應到此標的')}</span>
-        <span>${escapeHTML(item.publisher || '未標示來源')}</span>
-        <span>${publishedAt ? escapeHTML(formatDateTime(publishedAt)) : '無發布時間'}</span>
+        <span>${escapeHTML(relevant ? item.symbol || state.selectedItem?.symbol || '' : 'Not matched to this instrument')}</span>
+        <span>${escapeHTML(item.publisher || 'Unattributed source')}</span>
+        <span>${publishedAt ? escapeHTML(formatDateTime(publishedAt)) : 'No publish time'}</span>
       </div>
       ${item.summary ? `<p>${escapeHTML(item.summary)}</p>` : ''}
     `;
@@ -626,7 +676,7 @@ function renderNews(news) {
 
 function renderForecastFan(forecast) {
   if (!forecast?.available) {
-    return `<div class="forecast-empty">${escapeHTML(forecast?.reason || '資料不足，無法估計區間。')}</div>`;
+    return `<div class="forecast-empty">${escapeHTML(forecast?.reason || 'Not enough data to estimate a range.')}</div>`;
   }
 
   return `
@@ -638,8 +688,8 @@ function renderForecastFan(forecast) {
         const boxWidth = ((item.p75 - item.p25) / width) * 100;
         return `
           <div class="forecast-card">
-            <div class="forecast-label">${item.days} 個交易日</div>
-            <div class="forecast-band" role="img" aria-label="P10 ${formatNumber(item.p10, 2)}、中位數 ${formatNumber(item.p50, 2)}、P90 ${formatNumber(item.p90, 2)}">
+            <div class="forecast-label">${item.days} trading days</div>
+            <div class="forecast-band" role="img" aria-label="P10 ${formatNumber(item.p10, 2)}, median ${formatNumber(item.p50, 2)}, P90 ${formatNumber(item.p90, 2)}">
               <span class="band-box" style="left:${boxLeft.toFixed(2)}%;width:${boxWidth.toFixed(2)}%"></span>
               <span class="band-median" style="left:${medianOffset.toFixed(2)}%"></span>
             </div>
@@ -648,7 +698,7 @@ function renderForecastFan(forecast) {
               <span>P50 ${formatNumber(item.p50, 2)}</span>
               <span>P90 ${formatNumber(item.p90, 2)}</span>
             </div>
-            <div class="forecast-width">80% 區間寬度 ≈ ${formatPercent(item.widthPercent)}</div>
+            <div class="forecast-width">80% band width ≈ ${formatPercent(item.widthPercent)}</div>
           </div>
         `;
       }).join('')}
@@ -660,7 +710,7 @@ function confidenceBar(confidence) {
   return `
     <div class="confidence">
       <div class="confidence-head">
-        <span>信心度</span>
+        <span>Confidence</span>
         <strong>${confidence} / 100</strong>
       </div>
       <div class="confidence-track"><span style="width:${TA.clamp(confidence, 0, 100)}%"></span></div>
@@ -677,8 +727,8 @@ function renderStrategySignal() {
     strategyPanel.innerHTML = `
       <div class="strategy-header">
         <div>
-          <h2>訊號引擎</h2>
-          <p>選擇標的後，將以 20/60/200 日均線結構、ADX 趨勢強度、波動度分位與量能計算訊號。</p>
+          <h2>Signal engine</h2>
+          <p>Pick an instrument to compute a signal from 20/60/200-day moving-average structure, ADX trend strength, volatility percentile, and volume.</p>
         </div>
       </div>
     `;
@@ -690,32 +740,32 @@ function renderStrategySignal() {
   strategyPanel.innerHTML = `
     <div class="strategy-header grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] md:items-start gap-4">
       <div>
-        <h2>訊號引擎</h2>
+        <h2>Signal engine</h2>
         <p>
-          多週期均線排列（MA${SignalEngine.MA_FAST}/${SignalEngine.MA_MID}/${SignalEngine.MA_SLOW}）＋ ADX 趨勢強度門檻
-          ＋ ATR 波動度分位 ＋ 量能確認。ADX 低於 ${SignalEngine.ADX_TREND_FLOOR} 時判定為盤整，方向訊號會被抑制。非個別投資建議。
+          Multi-timeframe moving-average alignment (MA${SignalEngine.MA_FAST}/${SignalEngine.MA_MID}/${SignalEngine.MA_SLOW}) plus an ADX trend-strength floor,
+          ATR volatility percentile, and volume confirmation. Below ADX ${SignalEngine.ADX_TREND_FLOOR} the market is treated as ranging and directional signals are suppressed. Not personal investment advice.
         </p>
       </div>
       <div class="strategy-actions flex flex-wrap items-center justify-stretch md:justify-end gap-2.5 w-full md:w-auto">
         <div class="strategy-badge w-full md:w-auto">${escapeHTML(signal.label)}</div>
-        <button class="view-details-btn w-full md:w-auto" id="viewDetailsBtn" type="button">技術細節</button>
+        <button class="view-details-btn w-full md:w-auto" id="viewDetailsBtn" type="button">Technical details</button>
       </div>
     </div>
 
     <div class="strategy-summary">
       ${confidenceBar(signal.confidence)}
       <div class="signal-metrics">
-        <div><span>價格結構分數</span><strong>${signal.priceScore > 0 ? '+' : ''}${signal.priceScore}</strong></div>
+        <div><span>Price structure score</span><strong>${signal.priceScore > 0 ? '+' : ''}${signal.priceScore}</strong></div>
         <div><span>ADX(14)</span><strong>${point?.adx != null ? formatNumber(point.adx, 1) : '--'}</strong></div>
-        <div><span>ATR 波動分位</span><strong>${point?.volatilityRank != null ? formatPercent(point.volatilityRank, 0) : '--'}</strong></div>
-        <div><span>量能比 (20日)</span><strong>${point?.volumeRatio != null ? `${formatNumber(point.volumeRatio, 2)}x` : '--'}</strong></div>
+        <div><span>ATR volatility percentile</span><strong>${point?.volatilityRank != null ? formatPercent(point.volatilityRank, 0) : '--'}</strong></div>
+        <div><span>Volume ratio (20d)</span><strong>${point?.volumeRatio != null ? `${formatNumber(point.volumeRatio, 2)}x` : '--'}</strong></div>
       </div>
     </div>
 
     <div class="forecast-panel">
       <div class="forecast-heading">
-        <h3>價格機率區間</h3>
-        <span>顯示分布，不提供單一目標價</span>
+        <h3>Price probability bands</h3>
+        <span>A distribution, not a single price target</span>
       </div>
       ${renderForecastFan(forecast)}
       ${forecast?.available ? `<p class="forecast-method">${escapeHTML(forecast.method)}</p>` : ''}
@@ -735,7 +785,7 @@ function renderStrategySignal() {
 
 function renderSignalHistoryView() {
   if (!state.signalHistory || !state.selectedItem) {
-    signalHistoryBody.innerHTML = '<div class="empty-note">選擇標的後顯示歷史訊號與命中率。</div>';
+    signalHistoryBody.innerHTML = '<div class="empty-note">Select an instrument to see historical signals and hit rate.</div>';
     setPanelMeta('signal', sourceLine());
     return;
   }
@@ -744,28 +794,28 @@ function renderSignalHistoryView() {
   const directional = flips.filter(flip => flip.state !== 'HOLD');
 
   if (!directional.length) {
-    signalHistoryBody.innerHTML = '<div class="empty-note">此區間內沒有方向性訊號翻轉（模型多數時間判定為盤整）。</div>';
+    signalHistoryBody.innerHTML = '<div class="empty-note">No directional signal flips in this window (the model read it as ranging most of the time).</div>';
   } else {
     const statsHTML = stats ? `
       <div class="stat-row">
-        <div class="stat"><span>已結束訊號</span><strong>${stats.total}</strong></div>
-        <div class="stat"><span>命中率</span><strong class="${stats.hitRate >= 0.5 ? 'positive' : 'negative'}">${formatPercent(stats.hitRate)}</strong></div>
-        <div class="stat"><span>平均每次損益</span><strong class="${toneClass(stats.averageReturn)}">${formatSignedPercent(stats.averageReturn)}</strong></div>
-        <div class="stat"><span>平均獲利 / 虧損</span><strong>${formatSignedPercent(stats.averageWin)} / ${formatSignedPercent(stats.averageLoss)}</strong></div>
-        <div class="stat"><span>平均持有天數</span><strong>${formatNumber(stats.averageHoldingDays, 0)}</strong></div>
-        <div class="stat"><span>BUY / SELL 次數</span><strong>${stats.buyCount} / ${stats.sellCount}</strong></div>
+        <div class="stat"><span>Closed signals</span><strong>${stats.total}</strong></div>
+        <div class="stat"><span>Hit rate</span><strong class="${stats.hitRate >= 0.5 ? 'positive' : 'negative'}">${formatPercent(stats.hitRate)}</strong></div>
+        <div class="stat"><span>Average P/L per signal</span><strong class="${toneClass(stats.averageReturn)}">${formatSignedPercent(stats.averageReturn)}</strong></div>
+        <div class="stat"><span>Average win / loss</span><strong>${formatSignedPercent(stats.averageWin)} / ${formatSignedPercent(stats.averageLoss)}</strong></div>
+        <div class="stat"><span>Average holding days</span><strong>${formatNumber(stats.averageHoldingDays, 0)}</strong></div>
+        <div class="stat"><span>BUY / SELL count</span><strong>${stats.buyCount} / ${stats.sellCount}</strong></div>
       </div>
-    ` : '<div class="empty-note">尚無已結束的方向性訊號可統計。</div>';
+    ` : '<div class="empty-note">No closed directional signals to summarize yet.</div>';
 
     const rows = directional.slice().reverse().map(flip => `
       <tr>
         <td>${escapeHTML(formatDate(flip.timestamp))}</td>
         <td><span class="state-pill state-${flip.state.toLowerCase()}">${flip.state}</span></td>
         <td>${formatNumber(flip.price, 2)}</td>
-        <td>${flip.open ? '持續中' : escapeHTML(formatDate(flip.exitTimestamp))}</td>
+        <td>${flip.open ? 'Open' : escapeHTML(formatDate(flip.exitTimestamp))}</td>
         <td>${flip.open ? '--' : formatNumber(flip.exitPrice, 2)}</td>
         <td>${flip.holdingDays}</td>
-        <td class="${toneClass(flip.signalReturn)}">${flip.open ? '未結算' : formatSignedPercent(flip.signalReturn)}</td>
+        <td class="${toneClass(flip.signalReturn)}">${flip.open ? 'Unsettled' : formatSignedPercent(flip.signalReturn)}</td>
       </tr>
     `).join('');
 
@@ -775,23 +825,51 @@ function renderSignalHistoryView() {
         <table class="data-table">
           <thead>
             <tr>
-              <th>訊號日期</th><th>狀態</th><th>訊號價</th><th>結束日期</th><th>結束價</th><th>持有天數</th><th>訊號報酬</th>
+              <th>Signal date</th><th>State</th><th>Signal price</th><th>Exit date</th><th>Exit price</th><th>Holding days</th><th>Signal return</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
       <p class="fine-print">
-        訊號報酬以「方向 × 價格變動」計算：SELL 之後下跌視為命中。統計僅涵蓋價格結構訊號，
-        不含新聞情緒（沒有可回溯的歷史新聞，納入會高估命中率）。此為歷史結果，不代表未來績效。
+        Signal return is direction x price change: a decline after SELL counts as a hit. Statistics cover price-structure signals only and
+        exclude news sentiment (no point-in-time news archive exists, so including it would overstate the hit rate). Past results do not predict future performance.
       </p>
     `;
   }
 
   setPanelMeta('signal', sourceLine([
-    `樣本：${state.selectedItem.symbol} ${SIGNAL_RANGE} 日線`,
-    `最後一根 K 棒：${formatDate(state.signalBars[state.signalBars.length - 1]?.timestamp)}`
+    `Sample: ${state.selectedItem.symbol}, ${SIGNAL_RANGE} of daily bars`,
+    `Last bar: ${formatDate(state.signalBars[state.signalBars.length - 1]?.timestamp)}`
   ]));
+}
+
+/**
+ * Mechanical entry/stop/target from ATR and the last 20 bars. Shared by the
+ * technical modal and the printable report so the two cannot drift apart.
+ */
+function referenceLevels(point) {
+  if (!point || !state.signalBars.length) return null;
+  const recent = state.signalBars.slice(-20);
+  const support = Math.min(...recent.map(bar => Number(bar.low)));
+  const resistance = Math.max(...recent.map(bar => Number(bar.high)));
+  const atr = point.atr;
+
+  if (point.state === 'BUY') {
+    return {
+      entry: point.close,
+      stop: Math.min(support - atr * 0.1, point.close - atr * 1.5),
+      target: Math.max(resistance + atr * 0.1, point.close + atr * 2)
+    };
+  }
+  if (point.state === 'SELL') {
+    return {
+      entry: point.close,
+      stop: Math.max(resistance + atr * 0.1, point.close + atr * 1.5),
+      target: Math.min(support - atr * 0.1, point.close - atr * 2)
+    };
+  }
+  return null;
 }
 
 function showTechnicalModal() {
@@ -801,54 +879,45 @@ function showTechnicalModal() {
   const closes = state.signalBars.map(bar => Number(bar.adjClose ?? bar.close));
   const rsiSeries = TA.rsi(closes, 14);
   const rsi = rsiSeries[rsiSeries.length - 1];
-  const recent = state.signalBars.slice(-20);
-  const support = Math.min(...recent.map(bar => Number(bar.low)));
-  const resistance = Math.max(...recent.map(bar => Number(bar.high)));
-  const atr = point.atr;
+  const levels = referenceLevels(point);
 
-  const levels = point.state === 'BUY'
-    ? { entry: point.close, stop: Math.min(support - atr * 0.1, point.close - atr * 1.5), target: Math.max(resistance + atr * 0.1, point.close + atr * 2) }
-    : point.state === 'SELL'
-      ? { entry: point.close, stop: Math.max(resistance + atr * 0.1, point.close + atr * 1.5), target: Math.min(support - atr * 0.1, point.close - atr * 2) }
-      : null;
-
-  modalTitle.textContent = `${state.selectedItem?.name || ''} ${state.selectedItem?.symbol || ''} 技術細節`;
+  modalTitle.textContent = `${state.selectedItem?.name || ''} ${state.selectedItem?.symbol || ''} technical details`;
   modalBody.innerHTML = `
     <div class="analysis-section">
-      <h3>指標數值</h3>
+      <h3>Indicator values</h3>
       <div class="analysis-metrics grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-2.5">
-        <div class="metric-card"><div class="metric-label">收盤（還原）</div><div class="metric-value">${formatNumber(point.close, 2)}</div></div>
+        <div class="metric-card"><div class="metric-label">Close (adjusted)</div><div class="metric-value">${formatNumber(point.close, 2)}</div></div>
         <div class="metric-card"><div class="metric-label">MA20 / MA60</div><div class="metric-value" style="font-size:1rem;">${formatNumber(point.maFast, 2)} / ${formatNumber(point.maMid, 2)}</div></div>
-        <div class="metric-card"><div class="metric-label">MA200</div><div class="metric-value">${point.maSlow != null ? formatNumber(point.maSlow, 2) : '資料不足'}</div></div>
+        <div class="metric-card"><div class="metric-label">MA200</div><div class="metric-value">${point.maSlow != null ? formatNumber(point.maSlow, 2) : 'Not enough data'}</div></div>
         <div class="metric-card"><div class="metric-label">ADX(14)</div><div class="metric-value">${point.adx != null ? formatNumber(point.adx, 1) : '--'}</div></div>
         <div class="metric-card"><div class="metric-label">RSI(14)</div><div class="metric-value ${rsi > 70 ? 'negative' : rsi < 30 ? 'positive' : ''}">${formatNumber(rsi, 1)}</div></div>
-        <div class="metric-card"><div class="metric-label">ATR(14) / 價格</div><div class="metric-value">${formatPercent(point.atrPercent, 2)}</div></div>
-        <div class="metric-card"><div class="metric-label">波動度分位</div><div class="metric-value">${point.volatilityRank != null ? formatPercent(point.volatilityRank, 0) : '--'}</div></div>
-        <div class="metric-card"><div class="metric-label">量能比</div><div class="metric-value">${point.volumeRatio != null ? `${formatNumber(point.volumeRatio, 2)}x` : '--'}</div></div>
+        <div class="metric-card"><div class="metric-label">ATR(14) / price</div><div class="metric-value">${formatPercent(point.atrPercent, 2)}</div></div>
+        <div class="metric-card"><div class="metric-label">Volatility percentile</div><div class="metric-value">${point.volatilityRank != null ? formatPercent(point.volatilityRank, 0) : '--'}</div></div>
+        <div class="metric-card"><div class="metric-label">Volume ratio</div><div class="metric-value">${point.volumeRatio != null ? `${formatNumber(point.volumeRatio, 2)}x` : '--'}</div></div>
       </div>
     </div>
 
     <div class="analysis-section">
-      <h3>參考出場條件</h3>
+      <h3>Reference exit levels</h3>
       <div class="recommendation-box">
         ${levels ? `
-          <div class="recommendation-item"><div class="recommendation-label">參考進場</div><div class="recommendation-value">${formatNumber(levels.entry, 2)}</div></div>
-          <div class="recommendation-item"><div class="recommendation-label">停損（1.5 ATR 或前波支撐）</div><div class="recommendation-value" style="color: var(--negative-text);">${formatNumber(levels.stop, 2)}</div></div>
-          <div class="recommendation-item"><div class="recommendation-label">目標（2 ATR 或前波壓力）</div><div class="recommendation-value" style="color: var(--positive-text);">${formatNumber(levels.target, 2)}</div></div>
-          <div class="recommendation-item"><div class="recommendation-label">風險報酬比</div><div class="recommendation-value">${formatNumber(Math.abs(levels.target - levels.entry) / Math.abs(levels.entry - levels.stop), 2)} : 1</div></div>
-        ` : '<div class="recommendation-item"><div class="recommendation-label">目前為 HOLD</div><div class="recommendation-value">模型判定為盤整或訊號不一致，不提供進出場價位。</div></div>'}
+          <div class="recommendation-item"><div class="recommendation-label">Reference entry</div><div class="recommendation-value">${formatNumber(levels.entry, 2)}</div></div>
+          <div class="recommendation-item"><div class="recommendation-label">Stop (1.5 ATR or prior support)</div><div class="recommendation-value" style="color: var(--negative-text);">${formatNumber(levels.stop, 2)}</div></div>
+          <div class="recommendation-item"><div class="recommendation-label">Target (2 ATR or prior resistance)</div><div class="recommendation-value" style="color: var(--positive-text);">${formatNumber(levels.target, 2)}</div></div>
+          <div class="recommendation-item"><div class="recommendation-label">Risk / reward</div><div class="recommendation-value">${formatNumber(Math.abs(levels.target - levels.entry) / Math.abs(levels.entry - levels.stop), 2)} : 1</div></div>
+        ` : '<div class="recommendation-item"><div class="recommendation-label">Currently HOLD</div><div class="recommendation-value">The model reads the market as ranging or the signals disagree, so no entry or exit levels are given.</div></div>'}
       </div>
     </div>
 
     <div class="analysis-section">
-      <h3>訊號組成</h3>
+      <h3>Signal composition</h3>
       <div class="recommendation-box">
         ${state.latestSignal.drivers.map(driver => `
           <div class="recommendation-item"><div class="recommendation-value">${escapeHTML(driver.text)}</div></div>
         `).join('')}
       </div>
     </div>
-    <p class="fine-print">價位由 ATR 與近 20 根 K 棒的高低點計算，屬於機械式風控參考，非目標價或投資建議。</p>
+    <p class="fine-print">Levels come from ATR and the highs and lows of the last 20 bars. They are a mechanical risk-control reference, not price targets or investment advice.</p>
   `;
   openModal();
 }
@@ -857,13 +926,22 @@ function showTechnicalModal() {
 
 function renderBacktestView() {
   if (!state.selectedItem || !state.signalSeries) {
-    backtestBody.innerHTML = '<div class="empty-note">先在「市場總覽」選擇標的，再執行回測。</div>';
+    backtestBody.innerHTML = '<div class="empty-note">Select an instrument on the Overview tab first, then run the backtest.</div>';
     setPanelMeta('backtest', sourceLine());
     return;
   }
 
   const fromInput = document.getElementById('backtestFrom').value;
   const toInput = document.getElementById('backtestTo').value;
+
+  // Without this the engine reports "not enough bars", which points at the data
+  // rather than at the inverted range the user actually typed.
+  if (fromInput && toInput && Date.parse(fromInput) > Date.parse(toInput)) {
+    backtestBody.innerHTML = '<div class="empty-note">The start date is after the end date. Swap them, or clear both to use the history length above.</div>';
+    setPanelMeta('backtest', sourceLine());
+    return;
+  }
+
   const result = Backtest.runBacktest({
     points: state.signalSeries.points,
     symbol: state.selectedItem.symbol,
@@ -879,20 +957,20 @@ function renderBacktestView() {
   }
 
   const verdict = result.beatsBuyAndHold
-    ? '此區間內，含成本後策略優於買進持有。'
-    : '此區間內，含成本後策略「輸給」買進持有 — 多數單純均線策略在扣除成本後都是如此，這裡如實呈現。';
+    ? 'Over this window, the strategy beat buy & hold after costs.'
+    : 'Over this window, the strategy lost to buy & hold after costs, which is the norm for plain moving-average strategies once costs are deducted.';
 
   backtestBody.innerHTML = `
     <div class="verdict ${result.beatsBuyAndHold ? 'verdict-good' : 'verdict-warn'}">${escapeHTML(verdict)}</div>
     <div class="table-scroll">
       <table class="data-table">
-        <thead><tr><th>指標</th><th>訊號策略（含成本）</th><th>買進持有（含成本）</th></tr></thead>
+        <thead><tr><th>Metric</th><th>Signal strategy (after costs)</th><th>Buy &amp; hold (after costs)</th></tr></thead>
         <tbody>
-          <tr><td>總報酬</td><td class="${toneClass(result.strategy.totalReturn)}">${formatSignedPercent(result.strategy.totalReturn)}</td><td class="${toneClass(result.hold.totalReturn)}">${formatSignedPercent(result.hold.totalReturn)}</td></tr>
-          <tr><td>年化報酬</td><td class="${toneClass(result.strategy.annualizedReturn)}">${formatSignedPercent(result.strategy.annualizedReturn)}</td><td class="${toneClass(result.hold.annualizedReturn)}">${formatSignedPercent(result.hold.annualizedReturn)}</td></tr>
-          <tr><td>年化波動</td><td>${formatPercent(result.strategy.annualizedVolatility)}</td><td>${formatPercent(result.hold.annualizedVolatility)}</td></tr>
+          <tr><td>Total return</td><td class="${toneClass(result.strategy.totalReturn)}">${formatSignedPercent(result.strategy.totalReturn)}</td><td class="${toneClass(result.hold.totalReturn)}">${formatSignedPercent(result.hold.totalReturn)}</td></tr>
+          <tr><td>Annualized return</td><td class="${toneClass(result.strategy.annualizedReturn)}">${formatSignedPercent(result.strategy.annualizedReturn)}</td><td class="${toneClass(result.hold.annualizedReturn)}">${formatSignedPercent(result.hold.annualizedReturn)}</td></tr>
+          <tr><td>Annualized volatility</td><td>${formatPercent(result.strategy.annualizedVolatility)}</td><td>${formatPercent(result.hold.annualizedVolatility)}</td></tr>
           <tr><td>Sharpe (rf=0)</td><td>${formatNumber(result.strategy.sharpe, 2)}</td><td>${formatNumber(result.hold.sharpe, 2)}</td></tr>
-          <tr><td>最大回撤</td><td class="negative">${formatPercent(result.strategy.maxDrawdown)}</td><td class="negative">${formatPercent(result.hold.maxDrawdown)}</td></tr>
+          <tr><td>Max drawdown</td><td class="negative">${formatPercent(result.strategy.maxDrawdown)}</td><td class="negative">${formatPercent(result.hold.maxDrawdown)}</td></tr>
         </tbody>
       </table>
     </div>
@@ -900,25 +978,25 @@ function renderBacktestView() {
     <div id="backtestChart" class="mini-chart"></div>
 
     <div class="stat-row">
-      <div class="stat"><span>交易次數</span><strong>${result.tradeCount}</strong></div>
-      <div class="stat"><span>單筆勝率</span><strong>${result.winRate == null ? '--' : formatPercent(result.winRate)}</strong></div>
-      <div class="stat"><span>年周轉率</span><strong>${formatNumber(result.turnoverPerYear, 2)}x</strong></div>
-      <div class="stat"><span>成本拖累</span><strong class="negative">${formatSignedPercent(-Math.abs(result.costDragReturn))}</strong></div>
-      <div class="stat"><span>在市場時間</span><strong>${formatPercent(result.timeInMarket)}</strong></div>
-      <div class="stat"><span>樣本</span><strong>${result.bars} 根日線</strong></div>
+      <div class="stat"><span>Trades</span><strong>${result.tradeCount}</strong></div>
+      <div class="stat"><span>Win rate per trade</span><strong>${result.winRate == null ? '--' : formatPercent(result.winRate)}</strong></div>
+      <div class="stat"><span>Turnover per year</span><strong>${formatNumber(result.turnoverPerYear, 2)}x</strong></div>
+      <div class="stat"><span>Cost drag</span><strong class="negative">${formatSignedPercent(-Math.abs(result.costDragReturn))}</strong></div>
+      <div class="stat"><span>Time in market</span><strong>${formatPercent(result.timeInMarket)}</strong></div>
+      <div class="stat"><span>Sample</span><strong>${result.bars} daily bars</strong></div>
     </div>
 
     <p class="fine-print">
-      成本模型：${escapeHTML(result.costs.label)} — ${escapeHTML(result.costs.note)}。
-      訊號於 T 日收盤產生、T+1 日才建立部位；SELL 視為空手（不做空）；買進持有亦計入單邊進出成本。
-      未計入滑價、借券成本與稅務差異。歷史回測不保證未來績效。
+      Cost model: ${escapeHTML(result.costs.label)} — ${escapeHTML(result.costs.note)}.
+      Signals fire at the T close and positions open at T+1; SELL means flat, never short; buy &amp; hold also pays one-way entry and exit costs.
+      Slippage, borrow fees, and tax differences are excluded. Backtested results do not guarantee future performance.
     </p>
   `;
 
   renderBacktestChart(result);
   setPanelMeta('backtest', sourceLine([
-    `區間：${formatDate(result.from)} – ${formatDate(result.to)}`,
-    `成本模型：${result.costs.label}`
+    `Window: ${formatDate(result.from)} – ${formatDate(result.to)}`,
+    `Cost model: ${result.costs.label}`
   ]));
 }
 
@@ -933,7 +1011,7 @@ function renderBacktestChart(result) {
   state.backtestChartInstance.setOption({
     backgroundColor: 'transparent',
     tooltip: { trigger: 'axis', backgroundColor: palette.tooltipBg, borderColor: palette.tooltipBorder, textStyle: { color: palette.ink } },
-    legend: { data: ['訊號策略', '買進持有'], textStyle: { color: palette.muted }, top: 0 },
+    legend: { data: ['Signal strategy', 'Buy & hold'], textStyle: { color: palette.muted }, top: 0 },
     grid: { left: '10%', right: '4%', top: 40, bottom: 40 },
     xAxis: {
       type: 'category',
@@ -947,8 +1025,8 @@ function renderBacktestChart(result) {
       axisLabel: { color: palette.muted, formatter: value => `${(value * 100).toFixed(0)}` }
     },
     series: [
-      { name: '訊號策略', type: 'line', data: result.strategyEquity, symbol: 'none', lineStyle: { color: palette.blue, width: 2 } },
-      { name: '買進持有', type: 'line', data: result.holdEquity, symbol: 'none', lineStyle: { color: palette.muted, width: 2, type: 'dashed' } }
+      { name: 'Signal strategy', type: 'line', data: result.strategyEquity, symbol: 'none', lineStyle: { color: palette.blue, width: 2 } },
+      { name: 'Buy & hold', type: 'line', data: result.holdEquity, symbol: 'none', lineStyle: { color: palette.muted, width: 2, type: 'dashed' } }
     ]
   }, true);
 }
@@ -979,13 +1057,13 @@ async function renderPortfolioView() {
   const cashWeight = Number(document.getElementById('cashWeight').value);
   const method = document.getElementById('sizingMethod').value;
 
-  portfolioBody.innerHTML = '<div class="empty-note">計算中…</div>';
+  portfolioBody.innerHTML = '<div class="empty-note">Calculating…</div>';
 
   let payload;
   try {
     payload = await loadUniverseHistory(range);
   } catch (error) {
-    portfolioBody.innerHTML = '<div class="empty-note">無法載入歷史資料，請稍後再試（免費報價來源可能已限流）。</div>';
+    portfolioBody.innerHTML = '<div class="empty-note">Could not load history; try again shortly (the free quote source may be rate-limiting).</div>';
     return;
   }
 
@@ -1025,53 +1103,53 @@ async function renderPortfolioView() {
 
   portfolioBody.innerHTML = `
     <div class="stat-row">
-      <div class="stat"><span>投組年化波動</span><strong>${formatPercent(analysis.annualizedVolatility)}</strong></div>
-      <div class="stat"><span>最大回撤（樣本內）</span><strong class="negative">${formatPercent(analysis.maxDrawdown)}</strong></div>
-      <div class="stat"><span>現金水位</span><strong>${formatPercent(analysis.cashWeight)}</strong></div>
-      <div class="stat"><span>平均相關係數</span><strong>${formatNumber(analysis.averageCorrelation, 2)}</strong></div>
-      <div class="stat"><span>有效持股數（權重）</span><strong>${formatNumber(analysis.effectivePositions, 1)}</strong></div>
-      <div class="stat"><span>有效賭注數（含相關性）</span><strong class="${analysis.effectiveBets < 4 ? 'negative' : ''}">${formatNumber(analysis.effectiveBets, 1)}</strong></div>
+      <div class="stat"><span>Portfolio annualized volatility</span><strong>${formatPercent(analysis.annualizedVolatility)}</strong></div>
+      <div class="stat"><span>Max drawdown (in sample)</span><strong class="negative">${formatPercent(analysis.maxDrawdown)}</strong></div>
+      <div class="stat"><span>Cash level</span><strong>${formatPercent(analysis.cashWeight)}</strong></div>
+      <div class="stat"><span>Average correlation</span><strong>${formatNumber(analysis.averageCorrelation, 2)}</strong></div>
+      <div class="stat"><span>Effective positions (by weight)</span><strong>${formatNumber(analysis.effectivePositions, 1)}</strong></div>
+      <div class="stat"><span>Effective bets (correlation-adjusted)</span><strong class="${analysis.effectiveBets < 4 ? 'negative' : ''}">${formatNumber(analysis.effectiveBets, 1)}</strong></div>
     </div>
 
     <div class="insight ${analysis.effectiveBets < 4 || cryptoRisk > 0.6 ? 'insight-warn' : ''}">
-      名單有 ${analysis.symbols.length} 檔，但把相關性算進去後，實際上只有
-      <strong>${formatNumber(analysis.effectiveBets, 1)}</strong> 個獨立賭注（平均相關 ${formatNumber(analysis.averageCorrelation, 2)}、
-      最高相關 ${formatNumber(analysis.maxCorrelation, 2)}）。
-      Crypto 佔資金 ${formatPercent(cryptoWeight)}，卻佔風險 ${formatPercent(cryptoRisk)}。
-      分散化比率 ${formatNumber(analysis.diversificationRatio, 2)}（1.0 代表完全沒有分散效果）。
+      The list holds ${analysis.symbols.length} names, but after accounting for correlation it is really only
+      <strong>${formatNumber(analysis.effectiveBets, 1)}</strong> independent bets (average correlation ${formatNumber(analysis.averageCorrelation, 2)},
+      highest correlation ${formatNumber(analysis.maxCorrelation, 2)}).
+      Crypto takes ${formatPercent(cryptoWeight)} of capital but ${formatPercent(cryptoRisk)} of risk.
+      Diversification ratio ${formatNumber(analysis.diversificationRatio, 2)} (1.0 means no diversification benefit at all).
     </div>
 
     <div class="split-grid">
       <div>
-        <h3 class="sub-heading">建議權重與風險貢獻</h3>
+        <h3 class="sub-heading">Suggested weights &amp; risk contribution</h3>
         <div class="table-scroll">
           <table class="data-table">
-            <thead><tr><th>標的</th><th>資金權重</th><th>風險佔比</th><th>年化波動</th><th>風險/權重</th></tr></thead>
+            <thead><tr><th>Instrument</th><th>Capital weight</th><th>Risk share</th><th>Annualized volatility</th><th>Risk / weight</th></tr></thead>
             <tbody>
               ${weightRows}
-              <tr class="row-cash"><td>現金</td><td>${formatPercent(analysis.cashWeight)}</td><td>0.0%</td><td>0.0%</td><td>--</td></tr>
+              <tr class="row-cash"><td>Cash</td><td>${formatPercent(analysis.cashWeight)}</td><td>0.0%</td><td>0.0%</td><td>--</td></tr>
             </tbody>
           </table>
         </div>
       </div>
       <div>
-        <h3 class="sub-heading">相關係數矩陣</h3>
+        <h3 class="sub-heading">Correlation matrix</h3>
         <div id="correlationHeatmap" class="mini-chart"></div>
       </div>
     </div>
 
     <p class="fine-print">
-      權重為程式依 ${method === 'equal' ? '等權重' : '波動度反比'} 計算的輸出，並非個別投資建議。
-      相關性與波動以 ${analysis.sampleDays} 個共同交易日的日報酬估計，並以 ${state.baseCurrency} 計價（USD 標的已用 USD/TWD 日資料換算）。
-      樣本內結果會隨區間改變，最大回撤為此樣本期間的歷史值。
+      Weights are computed by code using ${method === 'equal' ? 'equal weighting' : 'inverse volatility'} and are not personal investment advice.
+      Correlation and volatility are estimated from daily returns over ${analysis.sampleDays} common trading days, denominated in ${state.baseCurrency} (USD instruments are converted with daily USD/TWD data).
+      In-sample results shift with the window, and max drawdown is the historical value for this sample period.
     </p>
   `;
 
   renderCorrelationHeatmap(analysis);
   setPanelMeta('portfolio', sourceLine([
-    `樣本：${analysis.sampleDays} 個共同交易日`,
-    `計價幣別：${state.baseCurrency}`,
-    payload.failed?.length ? `未取得：${payload.failed.join(', ')}` : ''
+    `Sample: ${analysis.sampleDays} common trading days`,
+    `Base currency: ${state.baseCurrency}`,
+    payload.failed?.length ? `Unavailable: ${payload.failed.join(', ')}` : ''
   ]));
 }
 
@@ -1098,20 +1176,22 @@ function renderCorrelationHeatmap(analysis) {
       backgroundColor: palette.tooltipBg,
       borderColor: palette.tooltipBorder,
       textStyle: { color: palette.ink },
-      formatter: params => `${labels[params.value[1]]} × ${labels[params.value[0]]}<br/>相關係數 ${params.value[2]}`
+      formatter: params => `${labels[params.value[1]]} × ${labels[params.value[0]]}<br/>Correlation ${params.value[2]}`
     },
     grid: { left: 70, right: 20, top: 10, bottom: 70 },
-    xAxis: { type: 'category', data: labels, axisLabel: { color: palette.muted, rotate: 45, fontSize: 10 }, splitArea: { show: true } },
-    yAxis: { type: 'category', data: labels, axisLabel: { color: palette.muted, fontSize: 10 }, splitArea: { show: true } },
+    xAxis: { type: 'category', data: labels, axisLabel: { color: palette.muted, rotate: 45, fontSize: 10 }, splitArea: { show: true, areaStyle: { color: [palette.splitArea] } } },
+    yAxis: { type: 'category', data: labels, axisLabel: { color: palette.muted, fontSize: 10 }, splitArea: { show: true, areaStyle: { color: [palette.splitArea] } } },
     visualMap: {
       min: -1, max: 1, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
       textStyle: { color: palette.muted },
-      inRange: { color: ['#2f6fed', '#f4f6fb', '#e5484d'] }
+      // The midpoint tracks the surface color so the matrix does not sit as a
+      // light slab inside the dark theme.
+      inRange: { color: ['#2f6fed', palette.heatmapMid, '#e5484d'] }
     },
     series: [{
       type: 'heatmap',
       data,
-      label: { show: labels.length <= 12, fontSize: 9, color: '#111827' },
+      label: { show: labels.length <= 12, fontSize: 9, color: palette.heatmapLabel },
       emphasis: { itemStyle: { shadowBlur: 8, shadowColor: 'rgba(0,0,0,0.3)' } }
     }]
   }, true);
@@ -1141,42 +1221,42 @@ function screenerCardHTML(row) {
         <div class="screen-title">
           <span class="screen-symbol">${escapeHTML(row.symbol)}</span>
           <span class="screen-name">${escapeHTML(row.name)}</span>
-          <span class="screen-english">${escapeHTML(row.english)}</span>
+          ${row.english && row.english !== row.name ? `<span class="screen-english">${escapeHTML(row.english)}</span>` : ''}
         </div>
         <div class="screen-badges">
           <span class="badge badge-review badge-${status.state}">${escapeHTML(status.label)} · ${escapeHTML(status.detail)}</span>
           <span class="badge">${escapeHTML(row.type === 'crypto' ? 'Crypto' : row.market)}</span>
           <span class="badge">${escapeHTML(row.horizon)}</span>
-          <span class="badge">流動性 ${'★'.repeat(row.liquidityStars)}${'☆'.repeat(5 - row.liquidityStars)}</span>
+          <span class="badge">Liquidity ${'★'.repeat(row.liquidityStars)}${'☆'.repeat(5 - row.liquidityStars)}</span>
           <span class="badge state-pill state-${signalState.toLowerCase()}">${escapeHTML(signalState)}</span>
         </div>
       </header>
 
       <div class="screen-metrics">
-        <div><span>建議日期</span><strong>${escapeHTML(row.review.entryDate || '未設定')}</strong></div>
-        <div><span>建議時價</span><strong>${row.review.entryPrice != null ? `${formatNumber(row.review.entryPrice, 2)} ${currency}` : '未設定'}</strong></div>
-        <div><span>現價</span><strong>${row.lastClose != null ? `${formatNumber(row.lastClose, 2)} ${currency}` : '--'}</strong></div>
-        <div><span>累積報酬</span><strong class="${toneClass(row.sinceReturn)}">${row.sinceReturn == null ? '需先設定建議時價' : formatSignedPercent(row.sinceReturn)}</strong></div>
-        <div><span>年化波動</span><strong>${formatPercent(row.volatility)}</strong></div>
-        <div><span>相對 MA200</span><strong>${row.aboveSlowMa == null ? '--' : row.aboveSlowMa ? '站上' : '跌破'}</strong></div>
+        <div><span>Idea date</span><strong>${escapeHTML(row.review.entryDate || 'Not set')}</strong></div>
+        <div><span>Price at idea</span><strong>${row.review.entryPrice != null ? `${formatNumber(row.review.entryPrice, 2)} ${currency}` : 'Not set'}</strong></div>
+        <div><span>Current price</span><strong>${row.lastClose != null ? `${formatNumber(row.lastClose, 2)} ${currency}` : '--'}</strong></div>
+        <div><span>Cumulative return</span><strong class="${toneClass(row.sinceReturn)}">${row.sinceReturn == null ? 'Set a price at idea first' : formatSignedPercent(row.sinceReturn)}</strong></div>
+        <div><span>Annualized volatility</span><strong>${formatPercent(row.volatility)}</strong></div>
+        <div><span>vs. MA200</span><strong>${row.aboveSlowMa == null ? '--' : row.aboveSlowMa ? 'Above' : 'Below'}</strong></div>
       </div>
 
       <div class="screen-exit">
-        <div class="exit-item"><span>目標價</span><strong>${row.review.target != null ? `${formatNumber(row.review.target, 2)}（距現價 ${formatSignedPercent(row.toTarget)}）` : '未設定'}</strong></div>
-        <div class="exit-item"><span>停損價</span><strong>${row.review.stop != null ? `${formatNumber(row.review.stop, 2)}（距現價 ${formatSignedPercent(row.toStop)}）` : '未設定'}</strong></div>
-        <div class="exit-item exit-invalidation"><span>失效條件</span><strong>${escapeHTML(row.review.invalidation || row.invalidation)}</strong></div>
+        <div class="exit-item"><span>Target price</span><strong>${row.review.target != null ? `${formatNumber(row.review.target, 2)} (${formatSignedPercent(row.toTarget)} from current)` : 'Not set'}</strong></div>
+        <div class="exit-item"><span>Stop price</span><strong>${row.review.stop != null ? `${formatNumber(row.review.stop, 2)} (${formatSignedPercent(row.toStop)} from current)` : 'Not set'}</strong></div>
+        <div class="exit-item exit-invalidation"><span>Invalidation</span><strong>${escapeHTML(row.review.invalidation || row.invalidation)}</strong></div>
       </div>
 
       <details class="screen-notes">
-        <summary>觀察筆記（${status.state === 'fresh' ? '已覆核' : '未覆核，僅供參考'}）</summary>
+        <summary>Observation notes (${status.state === 'fresh' ? 'reviewed' : 'not reviewed, for reference only'})</summary>
         <ul>${row.thesis.map(line => `<li>${escapeHTML(line)}</li>`).join('')}</ul>
-        <p class="screen-risk">⚠ 風險：${escapeHTML(row.risk)}</p>
+        <p class="screen-risk">⚠ Risk: ${escapeHTML(row.risk)}</p>
       </details>
 
       <footer class="screen-actions">
-        <button type="button" data-action="load">載入圖表</button>
-        <button type="button" data-action="edit">編輯進場與出場條件</button>
-        <button type="button" data-action="review">標記今日已覆核</button>
+        <button type="button" data-action="load">Load chart</button>
+        <button type="button" data-action="edit">Edit entry &amp; exit</button>
+        <button type="button" data-action="review">Mark reviewed today</button>
       </footer>
     </article>
   `;
@@ -1196,20 +1276,20 @@ function renderScreenerView() {
 
   screenerSummary.innerHTML = `
     <div class="stat-row">
-      <div class="stat"><span>符合條件</span><strong>${filtered.length} / ${rows.length}</strong></div>
-      <div class="stat"><span>待覆核</span><strong class="${stale ? 'negative' : ''}">${stale}</strong></div>
-      <div class="stat"><span>已設定建議價</span><strong>${rows.filter(row => row.review.entryPrice != null).length}</strong></div>
-      <div class="stat"><span>資料狀態</span><strong>${state.universeHistory ? '已載入' : '尚未載入'}</strong></div>
+      <div class="stat"><span>Matches</span><strong>${filtered.length} / ${rows.length}</strong></div>
+      <div class="stat"><span>Needs review</span><strong class="${stale ? 'negative' : ''}">${stale}</strong></div>
+      <div class="stat"><span>Idea price set</span><strong>${rows.filter(row => row.review.entryPrice != null).length}</strong></div>
+      <div class="stat"><span>Data status</span><strong>${state.universeHistory ? 'Loaded' : 'Not loaded'}</strong></div>
     </div>
   `;
 
   screenerList.innerHTML = filtered.length
     ? filtered.map(screenerCardHTML).join('')
-    : '<div class="empty-note">沒有標的符合目前條件，請放寬篩選。</div>';
+    : '<div class="empty-note">No instruments match the current filters; try loosening them.</div>';
 
   setPanelMeta('screener', sourceLine([
-    state.universeHistory ? `樣本區間：${state.universeRange}` : '尚未載入歷史資料',
-    `逾 ${Screener.STALE_AFTER_DAYS} 天未覆核即標記待覆核`
+    state.universeHistory ? `Sample window: ${state.universeRange}` : 'History not loaded yet',
+    `Flagged for review after ${Screener.STALE_AFTER_DAYS} days without a review`
   ]));
 }
 
@@ -1218,18 +1298,18 @@ function openReviewEditor(symbol) {
   const review = Screener.getReview(symbol);
   if (!item) return;
 
-  modalTitle.textContent = `${item.name} ${symbol} · 進場與出場條件`;
+  modalTitle.textContent = `${item.name} ${symbol} · entry and exit`;
   modalBody.innerHTML = `
     <form id="reviewForm" class="review-form">
-      <p class="fine-print">這些欄位由你自己維護，僅存在本機瀏覽器（localStorage），不會上傳。</p>
-      <label class="control"><span>建議日期</span><input type="date" name="entryDate" value="${escapeHTML(review.entryDate || '')}" /></label>
-      <label class="control"><span>建議時價（${escapeHTML(item.currency)}）</span><input type="number" step="any" name="entryPrice" value="${review.entryPrice ?? ''}" /></label>
-      <label class="control"><span>目標價</span><input type="number" step="any" name="target" value="${review.target ?? ''}" /></label>
-      <label class="control"><span>停損價</span><input type="number" step="any" name="stop" value="${review.stop ?? ''}" /></label>
-      <label class="control control-wide"><span>失效條件</span><input type="text" name="invalidation" value="${escapeHTML(review.invalidation || item.invalidation)}" /></label>
+      <p class="fine-print">You maintain these fields yourself. They stay in this browser (localStorage) and are never uploaded.</p>
+      <label class="control"><span>Idea date</span><input type="date" name="entryDate" value="${escapeHTML(review.entryDate || '')}" /></label>
+      <label class="control"><span>Price at idea (${escapeHTML(item.currency)})</span><input type="number" step="any" name="entryPrice" value="${review.entryPrice ?? ''}" /></label>
+      <label class="control"><span>Target price</span><input type="number" step="any" name="target" value="${review.target ?? ''}" /></label>
+      <label class="control"><span>Stop price</span><input type="number" step="any" name="stop" value="${review.stop ?? ''}" /></label>
+      <label class="control control-wide"><span>Invalidation</span><input type="text" name="invalidation" value="${escapeHTML(review.invalidation || item.invalidation)}" /></label>
       <div class="review-actions">
-        <button type="submit">儲存並標記已覆核</button>
-        <button type="button" id="clearReviewBtn" class="ghost-button">清除本檔設定</button>
+        <button type="submit">Save and mark reviewed</button>
+        <button type="button" id="clearReviewBtn" class="ghost-button">Clear settings for this name</button>
       </div>
     </form>
   `;
@@ -1257,6 +1337,190 @@ function openReviewEditor(symbol) {
   });
 }
 
+/* ---------------------------------------------------------------- report */
+
+function setReportState({ enabled = Boolean(state.selectedItem && state.latestSignal), preparing = false } = {}) {
+  if (!reportButton) return;
+  reportButton.disabled = preparing || !enabled;
+  reportButton.classList.toggle('is-loading', preparing);
+  reportButton.setAttribute('aria-disabled', String(reportButton.disabled));
+  if (reportHint) {
+    reportHint.textContent = enabled
+      ? 'The report covers the current signal, indicators, probability bands, and track record. Your browser opens its print dialog — choose "Save as PDF".'
+      : 'Search for an instrument to enable the report. It prints the current signal, indicators, probability bands, and track record as a PDF.';
+  }
+}
+
+function reportRow(label, value) {
+  return `<tr><th scope="row">${escapeHTML(label)}</th><td>${value}</td></tr>`;
+}
+
+function buildReportHTML() {
+  const item = state.selectedItem;
+  const signal = state.latestSignal;
+  const point = signal?.point;
+  if (!item || !signal) return '';
+
+  const currency = currencyOf(item);
+  const levels = referenceLevels(point);
+  const stats = state.signalHistory?.stats;
+  const forecast = state.forecast;
+  const generatedAt = new Date();
+
+  const bands = forecast?.available
+    ? forecast.horizons.map(h => `
+        <tr>
+          <td>${h.days} trading days</td>
+          <td>${formatNumber(h.p10, 2)}</td>
+          <td>${formatNumber(h.p50, 2)}</td>
+          <td>${formatNumber(h.p90, 2)}</td>
+          <td>${formatPercent(h.widthPercent)}</td>
+        </tr>`).join('')
+    : '';
+
+  return `
+    <article class="report-page">
+      <header class="report-head">
+        <div>
+          <p class="report-eyebrow">Investment Platform · Signal report</p>
+          <h1>${escapeHTML(item.name || item.symbol)} <span>${escapeHTML(item.symbol)}</span></h1>
+          <p class="report-sub">
+            ${escapeHTML(item.market || (item.type === 'crypto' ? 'Crypto' : ''))} ·
+            Generated ${escapeHTML(formatDateTime(generatedAt.getTime()))} ·
+            Prices in ${escapeHTML(currency)}
+          </p>
+        </div>
+        <div class="report-state report-state-${escapeHTML(signal.tone)}">
+          <span>Signal state</span>
+          <strong>${escapeHTML(signal.label)}</strong>
+          <span>Confidence ${signal.confidence == null ? '--' : `${Math.round(signal.confidence)} / 100`}</span>
+        </div>
+      </header>
+
+      <p class="report-callout">
+        This state is the mechanical output of a moving-average, ADX, volatility, and volume rule set applied to public
+        quotes. It is <strong>not investment advice, not an offer, and not a personal recommendation</strong>. Read the
+        limitations on the last page before acting on anything here.
+      </p>
+
+      <section class="report-section">
+        <h2>Market snapshot</h2>
+        <table class="report-table">
+          <tbody>
+            ${reportRow('Last price', `${escapeHTML(String(item.price ?? '--'))} ${escapeHTML(currency)}`)}
+            ${reportRow('Change', `${escapeHTML(String(item.change ?? '--'))} (${escapeHTML(String(item.percent ?? '--'))})`)}
+            ${reportRow('Volume', escapeHTML(String(item.volume ?? '--')))}
+            ${reportRow('Last bar', escapeHTML(String(item.lastBarLabel ?? '--')))}
+            ${reportRow('Data source', 'Yahoo Finance, quotes delayed ~15 min, adjusted for splits and dividends')}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="report-section">
+        <h2>Indicators driving the state</h2>
+        <table class="report-table">
+          <tbody>
+            ${reportRow('Price structure score', `${signal.priceScore > 0 ? '+' : ''}${signal.priceScore}`)}
+            ${reportRow('MA20 / MA60 / MA200', `${formatNumber(point?.maFast, 2)} / ${formatNumber(point?.maMid, 2)} / ${point?.maSlow != null ? formatNumber(point.maSlow, 2) : 'Not enough data'}`)}
+            ${reportRow('ADX(14)', point?.adx != null ? formatNumber(point.adx, 1) : '--')}
+            ${reportRow('ATR(14) / price', formatPercent(point?.atrPercent, 2))}
+            ${reportRow('Volatility percentile', point?.volatilityRank != null ? formatPercent(point.volatilityRank, 0) : '--')}
+            ${reportRow('Volume ratio (20d)', point?.volumeRatio != null ? `${formatNumber(point.volumeRatio, 2)}x` : '--')}
+          </tbody>
+        </table>
+        <ul class="report-drivers">
+          ${signal.drivers.map(d => `<li class="driver-${d.weight > 0 ? 'positive' : d.weight < 0 ? 'negative' : 'neutral'}">${escapeHTML(d.text)}</li>`).join('')}
+        </ul>
+      </section>
+
+      <section class="report-section">
+        <h2>Reference levels</h2>
+        ${levels ? `
+          <table class="report-table">
+            <tbody>
+              ${reportRow('Reference entry', `${formatNumber(levels.entry, 2)} ${escapeHTML(currency)}`)}
+              ${reportRow('Stop (1.5 ATR or prior support)', `${formatNumber(levels.stop, 2)} ${escapeHTML(currency)}`)}
+              ${reportRow('Target (2 ATR or prior resistance)', `${formatNumber(levels.target, 2)} ${escapeHTML(currency)}`)}
+              ${reportRow('Risk / reward', `${formatNumber(Math.abs(levels.target - levels.entry) / Math.abs(levels.entry - levels.stop), 2)} : 1`)}
+            </tbody>
+          </table>
+          <p class="report-note">Levels are computed from ATR and the highs and lows of the last 20 bars. They are a mechanical risk-control reference, not price targets.</p>
+        ` : '<p class="report-note">The state is HOLD: the model reads the market as ranging or the signals disagree, so no entry or exit levels are produced.</p>'}
+      </section>
+
+      <section class="report-section">
+        <h2>Price probability bands</h2>
+        ${bands ? `
+          <table class="report-table report-table-grid">
+            <thead><tr><th>Horizon</th><th>P10</th><th>Median</th><th>P90</th><th>80% width</th></tr></thead>
+            <tbody>${bands}</tbody>
+          </table>
+          <p class="report-note">${escapeHTML(forecast.method)}</p>
+        ` : `<p class="report-note">${escapeHTML(forecast?.reason || 'Not enough data to estimate a range.')}</p>`}
+      </section>
+
+      <section class="report-section">
+        <h2>Track record of this rule set</h2>
+        ${stats && stats.total ? `
+          <table class="report-table report-table-grid">
+            <thead><tr><th>Closed signals</th><th>Hit rate</th><th>Average P/L</th><th>Average win / loss</th><th>Average holding days</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>${stats.total}</td>
+                <td>${formatPercent(stats.hitRate)}</td>
+                <td>${formatSignedPercent(stats.averageReturn)}</td>
+                <td>${formatSignedPercent(stats.averageWin)} / ${formatSignedPercent(stats.averageLoss)}</td>
+                <td>${formatNumber(stats.averageHoldingDays, 0)}</td>
+              </tr>
+            </tbody>
+          </table>
+        ` : '<p class="report-note">No closed directional signals in the sample window.</p>'}
+        <p class="report-note">
+          Measured over ${escapeHTML(SIGNAL_RANGE)} of daily bars, direction x price change, exiting at the next state flip.
+          Price-structure signals only; news sentiment is excluded because no point-in-time news archive exists.
+        </p>
+      </section>
+
+      <section class="report-section report-disclaimer">
+        <h2>Limitations and disclaimer</h2>
+        <ul>
+          <li>Every figure is computed by code from delayed public quotes. Nothing here is investment advice, an offer, or a personal recommendation.</li>
+          <li>BUY / HOLD / SELL are labels for a rule-set state, not instructions. SELL means flat in the backtest, never short.</li>
+          <li>Returns are pre-tax and exclude slippage and borrow costs. Taiwan equities and crypto are taxed differently, so after-tax ranking can reverse.</li>
+          <li>Historical hit rates are in-sample and do not predict future performance.</li>
+          <li>Generated ${escapeHTML(formatDateTime(generatedAt.getTime()))} from a ${escapeHTML(SIGNAL_RANGE)} daily sample. Verify against your broker before acting.</li>
+        </ul>
+      </section>
+      <footer class="report-footer">
+        <span>Investment Platform · signal report · ${escapeHTML(item.symbol)}</span>
+        <span>Generated ${escapeHTML(formatDateTime(generatedAt.getTime()))} · Not investment advice</span>
+      </footer>
+    </article>
+  `;
+}
+
+function generateReport() {
+  if (!state.selectedItem || !state.latestSignal || !reportSheet) return;
+  setReportState({ preparing: true });
+  reportSheet.innerHTML = buildReportHTML();
+  reportSheet.setAttribute('aria-hidden', 'false');
+
+  const done = () => {
+    reportSheet.setAttribute('aria-hidden', 'true');
+    setReportState({});
+  };
+
+  // afterprint does not fire in every browser, so the reset is also queued.
+  window.addEventListener('afterprint', done, { once: true });
+  window.setTimeout(() => {
+    try {
+      window.print();
+    } finally {
+      window.setTimeout(done, 500);
+    }
+  }, 50);
+}
+
 /* ---------------------------------------------------------------- modals */
 
 /* The body lock stops the page behind the overlay from scrolling, which is
@@ -1272,52 +1536,52 @@ function closeModal() {
 }
 
 function showMethodologyModal() {
-  modalTitle.textContent = '方法論';
+  modalTitle.textContent = 'Methodology';
   modalBody.innerHTML = `
     <div class="analysis-section">
-      <h3>訊號如何計算</h3>
+      <h3>How the signal is computed</h3>
       <ul class="doc-list">
-        <li>資料：Yahoo Finance 日線，價格已還原除權息與分割（adjusted close）；報價延遲約 15 分鐘。</li>
-        <li>趨勢結構：MA20 / MA60 / MA200 排列，三線同向給 ±2 分，收盤相對 MA200 再給 ±1 分。</li>
-        <li>趨勢強度：ADX(14) ≥ 25 加 1 分；ADX(14) &lt; ${SignalEngine.ADX_TREND_FLOOR} 直接判定為盤整，方向訊號一律降為 HOLD。</li>
-        <li>量能：成交量 ≥ 20 日均量 1.5 倍時，往當下方向加 ±1 分。</li>
-        <li>狀態門檻：分數 ≥ +3 為 BUY，≤ −3 為 SELL，其餘為 HOLD。</li>
-        <li>信心度 = 分數強度 × 趨勢強度係數 × 波動度分位係數，換算為 0–100；高波動區間會壓低信心度。</li>
-        <li>新聞情緒僅微調信心度（每分 ±5），<strong>不會改變狀態</strong>；歷史統計完全不含新聞。</li>
+        <li>Data: Yahoo Finance daily bars, adjusted close for splits and dividends; quotes delayed about 15 minutes.</li>
+        <li>Trend structure: MA20 / MA60 / MA200 alignment scores ±2 when all three point the same way, plus ±1 for close versus MA200.</li>
+        <li>Trend strength: ADX(14) ≥ 25 adds 1 point; ADX(14) &lt; ${SignalEngine.ADX_TREND_FLOOR} marks the market as ranging and every directional signal is downgraded to HOLD.</li>
+        <li>Volume: when volume is at least 1.5x the 20-day average, ±1 point is added in the current direction.</li>
+        <li>State thresholds: score ≥ +3 is BUY, ≤ −3 is SELL, anything else is HOLD.</li>
+        <li>Confidence = score strength x trend-strength factor x volatility-percentile factor, mapped to 0–100; high-volatility regimes push confidence down.</li>
+        <li>News sentiment only nudges confidence (±5 per point) and <strong>never changes the state</strong>; historical statistics exclude news entirely.</li>
       </ul>
     </div>
     <div class="analysis-section">
-      <h3>價格區間如何計算</h3>
+      <h3>How the price bands are computed</h3>
       <ul class="doc-list">
-        <li>模型為隨機漫步：中位數僅含收縮後（×0.25，且上限 ±0.4%/日）的歷史漂移。</li>
-        <li>區間為實現波動度依 √t 外推的 P10 / P25 / P75 / P90 分位。</li>
-        <li>本站<strong>不提供單一目標價</strong>，因為短樣本的點預測精度不足以支撐該呈現方式。</li>
+        <li>The model is a random walk: the median carries only shrunken historical drift (x0.25, capped at ±0.4%/day).</li>
+        <li>Bands are the P10 / P25 / P75 / P90 quantiles from realized volatility scaled by √t.</li>
+        <li>This site gives <strong>no single price target</strong>, because point forecasts from short samples are not accurate enough to justify one.</li>
       </ul>
     </div>
     <div class="analysis-section">
-      <h3>回測規則</h3>
+      <h3>Backtest rules</h3>
       <ul class="doc-list">
-        <li>T 日收盤產生訊號，T+1 日才建立部位，避免用到當根 K 棒自身資訊。</li>
-        <li>只做多／空手，SELL 代表出場而非放空。</li>
-        <li>成本：台股手續費 0.1425%（雙邊、未折扣）＋ 賣出證交稅 0.3%；Crypto taker 0.1% 雙邊。</li>
-        <li>買進持有同樣計入單邊進出成本，兩者比較基準一致。</li>
-        <li>未計入滑價、借券費與稅務差異；樣本內結果不代表未來績效。</li>
+        <li>Signals fire at the T close and positions open at T+1, so no bar uses its own information.</li>
+        <li>Long or flat only; SELL means exit, not short.</li>
+        <li>Costs: Taiwan equities pay 0.1425% commission (both sides, undiscounted) plus 0.3% securities transaction tax on sales; crypto pays a 0.1% taker fee on both sides.</li>
+        <li>Buy &amp; hold also pays one-way entry and exit costs, so both are compared on the same basis.</li>
+        <li>Slippage, borrow fees, and tax differences are excluded; in-sample results do not predict future performance.</li>
       </ul>
     </div>
     <div class="analysis-section">
-      <h3>投組風險</h3>
+      <h3>Portfolio risk</h3>
       <ul class="doc-list">
-        <li>權重預設為波動度反比（風險平衡），使高波動標的不會壟斷投組風險；亦可切換等權重。</li>
-        <li>相關係數、波動度與最大回撤由共同交易日的日報酬計算，USD 標的以 USD/TWD 日資料換算為基準幣別。</li>
-        <li>「有效賭注數」= 分散化比率的平方（加權平均波動 ÷ 投組波動）²：這個定義會把高度相關的持股折算成同一個賭注，數字遠小於持股數即代表名單看似分散、實則押注同一因子。</li>
+        <li>Weights default to inverse volatility (risk parity) so high-volatility names cannot dominate portfolio risk; equal weighting is also available.</li>
+        <li>Correlation, volatility, and max drawdown come from daily returns on common trading days, with USD instruments converted to the base currency using daily USD/TWD data.</li>
+        <li>"Effective bets" is the square of the diversification ratio (weighted average volatility ÷ portfolio volatility)². It collapses highly correlated holdings into a single bet, so a number far below the position count means the list looks diversified but is really one factor bet.</li>
       </ul>
     </div>
     <div class="analysis-section">
-      <h3>已知限制</h3>
+      <h3>Known limitations</h3>
       <ul class="doc-list">
-        <li>台股假日未內建行事曆，非交易日以「已收盤」呈現，並標示最後一根 K 棒時間。</li>
-        <li>新聞情緒為關鍵字計分，非語意模型，對反諷與複雜語句判讀有限。</li>
-        <li>免費報價來源在高流量下可能失敗；伺服器端已加入快取與流量限制，仍可能出現空白狀態。</li>
+        <li>There is no built-in Taiwan holiday calendar, so non-trading days show as closed with the timestamp of the last bar.</li>
+        <li>News sentiment is keyword scoring rather than a semantic model, so it handles sarcasm and complex sentences poorly.</li>
+        <li>The free quote source can fail under load; the server caches and rate-limits requests, but empty states are still possible.</li>
       </ul>
     </div>
   `;
@@ -1325,30 +1589,30 @@ function showMethodologyModal() {
 }
 
 function showTaxModal() {
-  modalTitle.textContent = '幣別與稅務說明';
+  modalTitle.textContent = 'Currency and tax notes';
   modalBody.innerHTML = `
     <div class="analysis-section">
-      <h3>幣別</h3>
+      <h3>Currency</h3>
       <ul class="doc-list">
-        <li>台股以 TWD 報價、Crypto 以 USD 報價；上方切換鈕會將兩者換算為同一基準幣別。</li>
-        <li>換算採用 Yahoo Finance 的 USD/TWD 日資料，投組相關性與波動亦以換算後序列計算。</li>
-        <li>匯率變動本身即為報酬來源之一：以 TWD 計價時，USD 資產的報酬同時包含匯兌損益。</li>
+        <li>Taiwan equities are quoted in TWD and crypto in USD; the toggle above converts both to a single base currency.</li>
+        <li>Conversion uses Yahoo Finance daily USD/TWD data, and portfolio correlation and volatility are computed on the converted series.</li>
+        <li>FX moves are themselves a source of return: measured in TWD, a USD asset's return includes currency gains and losses.</li>
       </ul>
     </div>
     <div class="analysis-section">
-      <h3>稅務差異（一般性資訊，非稅務建議）</h3>
+      <h3>Tax differences (general information, not tax advice)</h3>
       <ul class="doc-list">
-        <li>台股：證券交易所得目前停徵；賣出時課 0.3% 證券交易稅；<strong>股利所得</strong>併入綜合所得稅（或採分開計稅），並涉及二代健保補充保費。</li>
-        <li>加密資產：個人透過境外交易所的處分損益，實務上多歸類為<strong>海外所得</strong>，涉及最低稅負制（基本所得額）門檻；透過境內業者交易則可能認定為境內所得。</li>
-        <li>兩者稅負結構不同，<strong>稅後排序可能與稅前排序相反</strong>；本站所有報酬數字皆為稅前。</li>
-        <li>個人情況差異大，實際申報請洽會計師或稅務機關；本段僅為一般性說明，不構成稅務建議。</li>
+        <li>Taiwan equities: capital gains tax on securities is currently suspended; sales incur a 0.3% securities transaction tax; <strong>dividend income</strong> is folded into personal income tax (or taxed separately) and also triggers the second-generation NHI supplementary premium.</li>
+        <li>Crypto assets: gains and losses realized through offshore exchanges are in practice usually classed as <strong>overseas income</strong>, which falls under the alternative minimum tax threshold; trading through a domestic operator may instead count as domestic income.</li>
+        <li>The two tax structures differ, so <strong>the after-tax ranking can reverse the pre-tax ranking</strong>; every return figure on this site is pre-tax.</li>
+        <li>Individual circumstances vary widely, so consult an accountant or the tax authority before filing. This section is general information, not tax advice.</li>
       </ul>
     </div>
     <div class="analysis-section">
-      <h3>法規定位</h3>
+      <h3>Regulatory position</h3>
       <ul class="doc-list">
-        <li>本站提供的是<strong>使用者自訂條件的篩選輸出與量化計算</strong>，不提供個別標的推薦、不代客操作、不收取顧問報酬。</li>
-        <li>在台灣，對不特定人提供個別有價證券的分析意見或推介，可能涉及《證券投資信託及顧問法》的投顧業務許可要求。若要對外開放或商業化，請先取得當地法律意見。</li>
+        <li>This site provides <strong>the output of user-defined filters and quantitative calculations</strong>. It makes no individual recommendations, manages no money, and charges no advisory fee.</li>
+        <li>In Taiwan, offering analysis or recommendations on individual securities to the general public can fall under the licensing requirements of the Securities Investment Trust and Consulting Act. Get local legal advice before opening this to the public or commercializing it.</li>
       </ul>
     </div>
   `;
@@ -1362,7 +1626,7 @@ function setRefreshState({ loading = false, message = '', enabled = Boolean(stat
   if (refreshButton) {
     refreshButton.disabled = loading || !enabled;
     refreshButton.classList.toggle('is-loading', loading);
-    refreshButton.textContent = loading ? '更新中…' : '重新整理';
+    refreshButton.textContent = loading ? 'Refreshing…' : 'Refresh';
   }
   if (refreshStatus && message) refreshStatus.textContent = message;
 }
@@ -1374,6 +1638,7 @@ function recomputeSignal() {
   state.forecast = Forecast.computeForecastFan(state.signalBars);
   renderStrategySignal();
   renderSignalHistoryView();
+  setReportState({});
 }
 
 async function loadMarketData(symbol) {
@@ -1402,7 +1667,7 @@ async function loadMarketData(symbol) {
     updateSummaryFromChart(displayData);
   } else {
     state.currentChartData = [];
-    renderChartEmptyState('沒有圖表資料', '無法載入此標的的價格歷史。');
+    renderChartEmptyState('No chart data', 'Price history for this instrument could not be loaded.');
   }
 
   const website = profileResult.status === 'fulfilled' ? profileResult.value?.website || null : null;
@@ -1413,11 +1678,11 @@ async function loadMarketData(symbol) {
   const newestNews = state.latestSignal?.newsSentiment?.newestTimestamp;
   setPanelMeta('chart', sourceLine([
     marketNoteFor(state.selectedItem),
-    `最後一根 K 棒：${formatDateTime(displayData[displayData.length - 1]?.timestamp)}`
+    `Last bar: ${formatDateTime(displayData[displayData.length - 1]?.timestamp)}`
   ]));
   setPanelMeta('news', sourceLine([
-    `已去重 ${state.currentNews.length} 則，其中 ${state.latestSignal?.newsSentiment?.counted ?? 0} 則對應到此標的`,
-    newestNews ? `最新標題：${formatDateTime(newestNews)}` : '無可用發布時間'
+    `${state.currentNews.length} headlines after dedupe, ${state.latestSignal?.newsSentiment?.counted ?? 0} matched to this instrument`,
+    newestNews ? `Latest headline: ${formatDateTime(newestNews)}` : 'No publish times available'
   ]));
 
   if (state.activeView === 'backtest') renderBacktestView();
@@ -1432,8 +1697,8 @@ function renderCompanyWebsite(website) {
   }
   websiteBox.innerHTML = `
     <div class="website-box">
-      <strong>官方網站</strong>
-      ${website ? `<a href="${safeExternalUrl(website)}" target="_blank" rel="noopener noreferrer">${escapeHTML(website)}</a>` : '<span>尚無資料</span>'}
+      <strong>Official website</strong>
+      ${website ? `<a href="${safeExternalUrl(website)}" target="_blank" rel="noopener noreferrer">${escapeHTML(website)}</a>` : '<span>Not available</span>'}
     </div>
   `;
 }
@@ -1441,14 +1706,14 @@ function renderCompanyWebsite(website) {
 async function refreshCurrentMarketData() {
   if (!state.selectedItem?.symbol || state.isRefreshing) return;
   const symbol = state.selectedItem.symbol;
-  setRefreshState({ loading: true, message: `更新 ${symbol} 中…` });
+  setRefreshState({ loading: true, message: `Refreshing ${symbol}…` });
 
   let message = '';
   try {
     await loadMarketData(symbol);
-    message = `已於 ${new Date().toLocaleTimeString('zh-TW', { hour12: false })} 更新。`;
+    message = `Updated at ${new Date().toLocaleTimeString('en-GB', { hour12: false })}.`;
   } catch (error) {
-    message = '更新失敗，稍後再試。';
+    message = 'Refresh failed; try again shortly.';
   } finally {
     setRefreshState({ loading: false, message });
     renderSourceBar();
@@ -1484,7 +1749,7 @@ function selectItem(item) {
   state.latestSignal = null;
   state.forecast = null;
 
-  setRefreshState({ loading: true, message: `載入 ${item.symbol} 中…`, enabled: true });
+  setRefreshState({ loading: true, message: `Loading ${item.symbol}…`, enabled: true });
   saveHistory(item.symbol || item.english || item.name);
   searchInput.value = item.symbol || item.english || item.name || searchInput.value;
   suggestionList.innerHTML = '';
@@ -1503,12 +1768,12 @@ function selectItem(item) {
   loadMarketData(item.symbol)
     .then(loaded => {
       if (loaded !== false && state.selectedItem?.symbol === item.symbol) {
-        setRefreshState({ loading: false, message: `已於 ${new Date().toLocaleTimeString('zh-TW', { hour12: false })} 更新。` });
+        setRefreshState({ loading: false, message: `Updated at ${new Date().toLocaleTimeString('en-GB', { hour12: false })}.` });
       }
     })
     .catch(() => {
       if (state.selectedItem?.symbol === item.symbol) {
-        setRefreshState({ loading: false, message: '初次載入失敗，請按重新整理。' });
+        setRefreshState({ loading: false, message: 'Initial load failed; press Refresh.' });
       }
     });
 }
@@ -1574,6 +1839,7 @@ viewTabs.addEventListener('click', event => {
 });
 
 refreshButton?.addEventListener('click', refreshCurrentMarketData);
+reportButton?.addEventListener('click', generateReport);
 
 themeButtons.forEach(button => button.addEventListener('click', () => setTheme(button.dataset.themeOption)));
 baseCurrencyButtons.forEach(button => button.addEventListener('click', () => setBaseCurrency(button.dataset.base)));
@@ -1661,6 +1927,7 @@ renderStrategySignal();
 renderSignalHistoryView();
 renderScreenerView();
 setRefreshState({ enabled: false });
+setReportState({ enabled: false });
 loadHistory();
 loadMarketStatus();
 loadFxRate();

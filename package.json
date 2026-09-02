@@ -5,6 +5,8 @@
   "scripts": {
     "start": "node server.js",
     "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o public/vendor/tailwind.css --minify",
+    "test": "npm run test:unit && npm run test:regression",
+    "test:unit": "node --test test/unit.test.js",
     "test:regression": "node test/search-modal-harness.js"
   },
   "dependencies": {

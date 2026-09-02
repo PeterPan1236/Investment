@@ -5,7 +5,7 @@
 | # | Area | Check | Result |
 |---|------|-------|--------|
 | 1 | Server boot | `node server.js` starts, serves SPA (200) | PASS |
-| 2 | Search API | Empty query returns top 30; `2330tw`, `btcusd`, `tsmc`, `honhai`, typo `medatek` all return correct top result; no unrelated fuzzy matches | PASS |
+| 2 | Search API | Empty query returns top 30 (superseded: it now returns 400, see update below); `2330tw`, `btcusd`, `tsmc`, `honhai`, typo `medatek` all return correct top result; no unrelated fuzzy matches | PASS |
 | 3 | Input validation | Bad symbol → 400, bad interval/range → 400 | PASS |
 | 4 | Unknown API route | `/api/doesnotexist` | **FAIL → FIXED** (was 200 + HTML SPA shell; now 404 JSON) |
 | 5 | Rate limiting | 60 req/min then 429 | PASS, but **spoofable → FIXED** (X-Forwarded-For rotation bypassed the limit; header now trusted only with `TRUST_PROXY=1`) |
@@ -41,3 +41,13 @@ Local server on test ports: SPA 200, unknown API 404 JSON, invalid params 400, r
 
 - Run `npm run test:regression` on your machine (needs `npx playwright install`).
 - If you deploy behind a reverse proxy, set `TRUST_PROXY=1` so per-client rate limiting uses the forwarded IP.
+
+## Update (2026-09-02)
+
+Behaviour changed after this report was written:
+
+- `/api/search` with an empty query now returns `400 Missing query parameter` instead of dumping the first 30 universe entries.
+- `/api/chart` and `/api/news` map an upstream 404 to `404` and everything else to `502`, and no longer echo the upstream error message, code or URL to the client.
+- `/api/profile` only uses the Google "I'm feeling lucky" fallback for symbols in the local universe or confirmed by Yahoo; unknown symbols return `404` instead of an unrelated website.
+- `/api/news` reads Yahoo's symbol-scoped RSS headline feed, falling back to the search feed only when it is empty.
+- The UI is English; Chinese company names are kept as search aliases in `data/taiwan_stocks.json`.

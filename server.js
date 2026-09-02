@@ -57,16 +57,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const stocks = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'taiwan_stocks.json'), 'utf8'));
 const cryptoList = [
-  { symbol: 'BTC-USD', name: '比特幣', english: 'Bitcoin', type: 'crypto' },
-  { symbol: 'ETH-USD', name: '以太幣', english: 'Ethereum', type: 'crypto' },
-  { symbol: 'USDT-USD', name: '泰達幣', english: 'Tether', type: 'crypto' },
-  { symbol: 'BNB-USD', name: '幣安幣', english: 'BNB', type: 'crypto' },
-  { symbol: 'XRP-USD', name: '瑞波幣', english: 'XRP', type: 'crypto' },
-  { symbol: 'ADA-USD', name: '艾達幣', english: 'Cardano', type: 'crypto' },
-  { symbol: 'SOL-USD', name: '索拉納', english: 'Solana', type: 'crypto' },
-  { symbol: 'DOGE-USD', name: '狗狗幣', english: 'Dogecoin', type: 'crypto' },
-  { symbol: 'DOT-USD', name: '波卡', english: 'Polkadot', type: 'crypto' },
-  { symbol: 'LTC-USD', name: '萊特幣', english: 'Litecoin', type: 'crypto' }
+  { symbol: 'BTC-USD', name: 'Bitcoin', english: 'Bitcoin', type: 'crypto' },
+  { symbol: 'ETH-USD', name: 'Ethereum', english: 'Ethereum', type: 'crypto' },
+  { symbol: 'USDT-USD', name: 'Tether', english: 'Tether', type: 'crypto' },
+  { symbol: 'BNB-USD', name: 'BNB', english: 'BNB', type: 'crypto' },
+  { symbol: 'XRP-USD', name: 'XRP', english: 'XRP', type: 'crypto' },
+  { symbol: 'ADA-USD', name: 'Cardano', english: 'Cardano', type: 'crypto' },
+  { symbol: 'SOL-USD', name: 'Solana', english: 'Solana', type: 'crypto' },
+  { symbol: 'DOGE-USD', name: 'Dogecoin', english: 'Dogecoin', type: 'crypto' },
+  { symbol: 'DOT-USD', name: 'Polkadot', english: 'Polkadot', type: 'crypto' },
+  { symbol: 'LTC-USD', name: 'Litecoin', english: 'Litecoin', type: 'crypto' }
 ];
 const searchItems = [...stocks, ...cryptoList];
 const validIntervals = new Set(['5m', '30m', '1d', '1mo']);
@@ -114,6 +114,56 @@ async function fetchYahooJson(url, ttlMs) {
   const response = await axios.get(url, { timeout: 15000, headers: YAHOO_HEADERS });
   cacheSet(url, response.data, ttlMs);
   return response.data;
+}
+
+async function fetchYahooText(url, ttlMs) {
+  const cached = cacheGet(url);
+  if (cached) return cached;
+
+  const response = await axios.get(url, { timeout: 15000, headers: YAHOO_HEADERS, responseType: 'text' });
+  const text = typeof response.data === 'string' ? response.data : String(response.data);
+  cacheSet(url, text, ttlMs);
+  return text;
+}
+
+function decodeXmlEntities(value = '') {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .trim();
+}
+
+function tagText(block, tag) {
+  const match = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i'));
+  return match ? decodeXmlEntities(match[1]) : null;
+}
+
+/**
+ * Yahoo's search endpoint returns a general markets feed regardless of the
+ * symbol queried, which left the sentiment driver with nothing to score. The
+ * per-symbol RSS headline feed is the only free endpoint that is actually
+ * scoped to the instrument.
+ */
+async function fetchSymbolHeadlines(symbol) {
+  const url = `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(symbol)}&region=US&lang=en-US`;
+  const xml = await fetchYahooText(url, 5 * 60 * 1000);
+  const blocks = xml.match(/<item>[\s\S]*?<\/item>/gi) || [];
+
+  return blocks.map(block => {
+    const published = Date.parse(tagText(block, 'pubDate') || '');
+    return {
+      symbol,
+      title: tagText(block, 'title'),
+      link: tagText(block, 'link'),
+      publisher: tagText(block, 'source') || 'Yahoo Finance',
+      providerPublishTime: Number.isFinite(published) ? Math.floor(published / 1000) : null,
+      summary: tagText(block, 'description')
+    };
+  }).filter(item => item.title);
 }
 
 function chartUrl(symbol, interval, range) {
@@ -169,15 +219,15 @@ function taiwanMarketStatus(now = new Date()) {
   const closeMinutes = 13 * 60 + 30;
 
   if (isWeekend) {
-    return { state: 'closed', label: '休市（週末）', session: 'TWSE 09:00–13:30 (UTC+8)' };
+    return { state: 'closed', label: 'Closed (weekend)', session: 'TWSE 09:00–13:30 (UTC+8)' };
   }
   if (minutes < openMinutes) {
-    return { state: 'pre', label: '尚未開盤', session: 'TWSE 09:00–13:30 (UTC+8)' };
+    return { state: 'pre', label: 'Pre-open', session: 'TWSE 09:00–13:30 (UTC+8)' };
   }
   if (minutes > closeMinutes) {
-    return { state: 'closed', label: '已收盤', session: 'TWSE 09:00–13:30 (UTC+8)' };
+    return { state: 'closed', label: 'Closed', session: 'TWSE 09:00–13:30 (UTC+8)' };
   }
-  return { state: 'open', label: '盤中', session: 'TWSE 09:00–13:30 (UTC+8)' };
+  return { state: 'open', label: 'Open', session: 'TWSE 09:00–13:30 (UTC+8)' };
 }
 
 function isValidMarketSymbol(symbol) {
@@ -270,8 +320,8 @@ const US_EXCHANGE_CODES = new Set(['nms', 'ngm', 'ncm', 'nyq', 'ase', 'pcx', 'bt
 function guessMarketFromExchange(exchange, quoteType) {
   if (!exchange) return undefined;
   const normalized = exchange.toLowerCase();
-  if (normalized.includes('tai')) return '上市';
-  if (normalized.includes('otc') || normalized.includes('tpe')) return '上櫃';
+  if (normalized.includes('tai')) return 'TWSE';
+  if (normalized.includes('otc') || normalized.includes('tpe')) return 'TPEx';
   if (normalized.includes('crypto') || normalized.includes('binance') || normalized.includes('coinbase') || quoteType === 'CRYPTOCURRENCY') return 'Crypto';
   if (US_EXCHANGE_CODES.has(normalized) || normalized.includes('nasdaq') || normalized.includes('nyse') || normalized.includes('nysemkt')) return 'US';
   return exchange;
@@ -332,19 +382,29 @@ function rateLimitMiddleware(req, res, next) {
 
 app.use('/api/', rateLimitMiddleware);
 
+// Upstream failures are logged server-side but never echoed to the client:
+// the raw axios message carries the request URL and library internals.
 function yahooErrorPayload(message, error) {
+  const upstream = error.response?.status;
+  console.warn(`[yahoo] ${message}:`, error.message || error.code || error);
   return {
     error: message,
-    details: error.message || error.code || 'Unknown Yahoo Finance error',
-    code: error.code,
-    status: error.response?.status
+    details: upstream === 404
+      ? 'The data provider has no data for this request.'
+      : upstream
+        ? 'The data provider rejected the request.'
+        : 'The data provider is unavailable. Try again shortly.'
   };
+}
+
+function upstreamHttpStatus(error) {
+  return error.response?.status === 404 ? 404 : 502;
 }
 
 app.get('/api/search', async (req, res) => {
   const query = (req.query.query || '').trim();
   if (!query) {
-    return res.json(searchItems.slice(0, 30));
+    return res.status(400).json({ error: 'Missing query parameter' });
   }
 
   const lower = normalize(query);
@@ -400,7 +460,7 @@ app.get('/api/chart', async (req, res) => {
       source: dataSourceInfo(data)
     });
   } catch (error) {
-    return res.status(500).json(yahooErrorPayload('Unable to fetch chart data', error));
+    return res.status(upstreamHttpStatus(error)).json(yahooErrorPayload('Unable to fetch chart data', error));
   }
 });
 
@@ -419,7 +479,7 @@ app.get('/api/market-status', (req, res) => {
   const now = new Date();
   res.json({
     taiwan: taiwanMarketStatus(now),
-    crypto: { state: 'open', label: '24/7 交易', session: 'Crypto 全天候' },
+    crypto: { state: 'open', label: '24/7 trading', session: 'Crypto around the clock' },
     fetchedAt: now.getTime(),
     delayMinutes: QUOTE_DELAY_MINUTES
   });
@@ -518,12 +578,17 @@ app.get('/api/news', async (req, res) => {
   const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}`;
 
   try {
-    const body = await fetchYahooJson(url, 5 * 60 * 1000);
+    // Symbol-scoped RSS first; the search feed is only a fallback because its
+    // headlines are market-wide and rarely mention the instrument at all.
+    let news = await fetchSymbolHeadlines(symbol).catch(() => []);
 
-    let news = body.news || [];
     if (!news.length) {
-      const quotes = body.quotes || [];
-      news = quotes.flatMap(q => q.news || []);
+      const body = await fetchYahooJson(url, 5 * 60 * 1000);
+      news = body.news || [];
+      if (!news.length) {
+        const quotes = body.quotes || [];
+        news = quotes.flatMap(q => q.news || []);
+      }
     }
 
     // Yahoo repeats the same story across syndication partners; dedupe on the
@@ -549,7 +614,7 @@ app.get('/api/news', async (req, res) => {
 
     return res.json(items);
   } catch (error) {
-    return res.status(500).json(yahooErrorPayload('Unable to fetch news', error));
+    return res.status(upstreamHttpStatus(error)).json(yahooErrorPayload('Unable to fetch news', error));
   }
 });
 
@@ -570,6 +635,11 @@ function parseGoogleRedirectLocation(location) {
       return location;
     }
   }
+}
+
+function isKnownSymbol(symbol) {
+  const lower = symbol.toLowerCase();
+  return searchItems.some(item => String(item.symbol).toLowerCase() === lower);
 }
 
 async function fetchGoogleWebsiteFallback(symbol) {
@@ -614,11 +684,16 @@ app.get('/api/profile', async (req, res) => {
       }
     });
 
-    const profile = response.data.quoteSummary?.result?.[0]?.summaryProfile || {};
+    const summary = response.data.quoteSummary?.result?.[0];
+    const profile = summary?.summaryProfile || {};
     let website = profile.website || null;
 
-    if (!website) {
+    if (!website && (summary || isKnownSymbol(symbol))) {
       website = await fetchGoogleWebsiteFallback(symbol);
+    }
+
+    if (!website && !summary && !isKnownSymbol(symbol)) {
+      return res.status(404).json({ error: 'Unknown symbol' });
     }
 
     if (website) {
@@ -630,14 +705,18 @@ app.get('/api/profile', async (req, res) => {
       details: 'Yahoo profile returned no website and Google fallback also failed.'
     });
   } catch (error) {
-    const fallbackWebsite = await fetchGoogleWebsiteFallback(symbol);
+    const fallbackWebsite = isKnownSymbol(symbol) ? await fetchGoogleWebsiteFallback(symbol) : null;
     if (fallbackWebsite) {
       return res.json({ website: fallbackWebsite, industry: null, sector: null });
     }
 
+    if (!isKnownSymbol(symbol) && error.response?.status === 404) {
+      return res.status(404).json({ error: 'Unknown symbol' });
+    }
+
     return res.status(502).json({
       error: 'Unable to fetch company profile from Yahoo and Google fallback failed.',
-      details: error.message
+      details: 'The data provider is unavailable. Try again shortly.'
     });
   }
 });

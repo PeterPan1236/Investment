@@ -6,7 +6,7 @@ import {
   validIntervals,
   validRanges
 } from '../_utils/market.js';
-import { fetchJsonWithTimeout, yahooErrorPayload } from '../_utils/yahoo.js';
+import { fetchJsonWithTimeout, upstreamHttpStatus, yahooErrorPayload } from '../_utils/yahoo.js';
 
 export async function onRequestGet({ request }) {
   const { searchParams } = new URL(request.url);
@@ -37,6 +37,6 @@ export async function onRequestGet({ request }) {
     const data = normalizeChartResult(result);
     return Response.json({ symbol, meta: result.meta || {}, data, source: dataSourceInfo(data) });
   } catch (error) {
-    return Response.json(yahooErrorPayload('Unable to fetch chart data', error), { status: 500 });
+    return Response.json(yahooErrorPayload('Unable to fetch chart data', error), { status: upstreamHttpStatus(error) });
   }
 }

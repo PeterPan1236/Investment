@@ -31,13 +31,22 @@ export async function fetchYahooSearch(query) {
   }
 }
 
+// Upstream failures are logged but never echoed to the client: the raw error
+// message carries the request URL and runtime internals.
 export function yahooErrorPayload(message, error) {
+  console.warn(`[yahoo] ${message}:`, error?.message || error?.code || error);
   return {
     error: message,
-    details: error.message || error.code || 'Unknown Yahoo Finance error',
-    code: error.code,
-    status: error.status
+    details: error?.status === 404
+      ? 'The data provider has no data for this request.'
+      : error?.status
+        ? 'The data provider rejected the request.'
+        : 'The data provider is unavailable. Try again shortly.'
   };
+}
+
+export function upstreamHttpStatus(error) {
+  return error?.status === 404 ? 404 : 502;
 }
 
 export function parseGoogleRedirectLocation(location) {
