@@ -31,6 +31,17 @@ function isAllowedCorsOrigin(origin, configuredOrigins) {
   }
 }
 
+/**
+ * Pages caches static assets for four hours and clamps any shorter max-age set
+ * through _headers back up to its own default. index.html is revalidated on
+ * every load, so a returning visitor could run new markup against stale
+ * application code — the report language switch rendered, with nothing behind
+ * it. Application code is therefore forced to revalidate here, where the
+ * clamp does not apply; the ETag keeps that a 304. Vendored libraries are left
+ * on the long cache since they only change when their filenames do.
+ */
+const REVALIDATE_PATHS = /^\/(app\.js|styles\.css|theme-init\.js|lib\/[^/]+\.js)$/;
+
 export async function onRequest({ request, next, env }) {
   const url = new URL(request.url);
   const origin = request.headers.get('Origin');
@@ -64,6 +75,10 @@ export async function onRequest({ request, next, env }) {
   if (isAllowedCorsOrigin(origin, configuredOrigins) && origin) {
     headers.set('Access-Control-Allow-Origin', origin);
     headers.set('Vary', 'Origin');
+  }
+
+  if (REVALIDATE_PATHS.test(url.pathname)) {
+    headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
   }
 
   headers.set('X-Content-Type-Options', 'nosniff');

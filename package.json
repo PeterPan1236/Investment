@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
+    "stamp": "node scripts/stamp-assets.js",
+    "deploy": "npm run stamp && wrangler pages deploy public --project-name investment-webui --branch master",
     "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o public/vendor/tailwind.css --minify",
     "test": "npm run test:unit && npm run test:regression",
     "test:unit": "node --test test/unit.test.js",

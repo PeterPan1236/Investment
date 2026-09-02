@@ -1,0 +1,6 @@
+# Vendored libraries only change when their filenames do, so they keep a long
+# cache. Application code is handled in functions/_middleware.js because Pages
+# clamps any shorter max-age set here back up to its own four-hour default.
+
+/vendor/*
+  Cache-Control: public, max-age=604800
