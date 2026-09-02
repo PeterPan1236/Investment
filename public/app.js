@@ -8,6 +8,9 @@ const timeTabs = document.getElementById('timeTabs');
 const refreshButton = document.getElementById('refreshButton');
 const refreshStatus = document.getElementById('refreshStatus');
 const reportButton = document.getElementById('generateReportBtn');
+const reportButtonLabel = document.getElementById('reportButtonLabel');
+const reportLanguageGroup = document.getElementById('reportLanguageToggle');
+const reportLanguageButtons = Array.from(document.querySelectorAll('[data-report-lang]'));
 const reportHint = document.getElementById('reportHint');
 const reportSheet = document.getElementById('reportSheet');
 const chartContainer = document.getElementById('chart');
@@ -32,6 +35,7 @@ const screenerSummary = document.getElementById('screenerSummary');
 const HISTORY_KEY = 'investment_search_history';
 const THEME_KEY = 'investment_theme';
 const BASE_CURRENCY_KEY = 'investment_base_currency';
+const REPORT_LANGUAGE_KEY = 'investment_report_language';
 const SIGNAL_INTERVAL = '1d';
 const SIGNAL_RANGE = '2y';
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
@@ -40,6 +44,7 @@ const state = {
   searchHistory: [],
   selectedItem: null,
   currentInterval: '1d',
+  reportLanguage: 'en',
   currentRange: '1mo',
   baseCurrency: 'TWD',
   fx: null,
@@ -1339,131 +1344,320 @@ function openReviewEditor(symbol) {
 
 /* ---------------------------------------------------------------- report */
 
+/**
+ * The report is the one artefact that leaves the browser, so it carries its own
+ * language rather than following the interface. Everything the report prints —
+ * including the signal drivers and the forecast method — has a Chinese variant
+ * generated alongside the English one, so the numbers can never diverge.
+ */
+const REPORT_LANGUAGES = ['en', 'zh'];
+
+/** Yahoo range codes read as jargon in prose, so the report spells them out. */
+const REPORT_RANGE_WORDS = {
+  en: { '6mo': '6 months', '1y': '1 year', '2y': '2 years', '5y': '5 years' },
+  zh: { '6mo': '6 個月', '1y': '1 年', '2y': '2 年', '5y': '5 年' }
+};
+
+function reportRangeLabel(range, lang) {
+  return REPORT_RANGE_WORDS[lang]?.[range] || range;
+}
+
+const REPORT_COPY = {
+  en: {
+    locale: 'en-GB',
+    documentTitle: 'Investment Platform · Signal report',
+    generated: 'Generated',
+    pricesIn: 'Prices in',
+    signalState: 'Signal state',
+    confidence: 'Confidence',
+    callout: 'This state is the mechanical output of a moving-average, ADX, volatility, and volume rule set applied to public quotes. It is <strong>not investment advice, not an offer, and not a personal recommendation</strong>. Read the limitations on the last page before acting on anything here.',
+    snapshot: 'Market snapshot',
+    lastPrice: 'Last price',
+    change: 'Change',
+    volume: 'Volume',
+    lastBar: 'Last bar',
+    dataSource: 'Data source',
+    dataSourceValue: 'Yahoo Finance, quotes delayed ~15 min, adjusted for splits and dividends',
+    indicators: 'Indicators driving the state',
+    priceScore: 'Price structure score',
+    movingAverages: 'MA20 / MA60 / MA120',
+    notEnoughData: 'Not enough data',
+    adx: 'ADX(14)',
+    atr: 'ATR(14) / price',
+    volatilityRank: 'Volatility percentile',
+    volumeRatio: 'Volume ratio (20d)',
+    levels: 'Reference levels',
+    entry: 'Reference entry',
+    stop: 'Stop (1.5 ATR or prior support)',
+    target: 'Target (2 ATR or prior resistance)',
+    riskReward: 'Risk / reward',
+    levelsNote: 'Levels are computed from ATR and the highs and lows of the last 20 bars. They are a mechanical risk-control reference, not price targets.',
+    holdNote: 'The state is HOLD: the model reads the market as ranging or the signals disagree, so no entry or exit levels are produced.',
+    bands: 'Price probability bands',
+    horizon: 'Horizon',
+    tradingDays: days => `${days} trading days`,
+    median: 'Median',
+    bandWidth: '80% width',
+    noBands: 'Not enough data to estimate a range.',
+    trackRecord: 'Track record of this rule set',
+    closedSignals: 'Closed signals',
+    hitRate: 'Hit rate',
+    averagePL: 'Average P/L',
+    averageWinLoss: 'Average win / loss',
+    averageHolding: 'Average holding days',
+    noClosed: 'No closed directional signals in the sample window.',
+    trackNote: range => `Measured over ${range} of daily bars, direction x price change, exiting at the next state flip. Price-structure signals only; news sentiment is excluded because no point-in-time news archive exists.`,
+    disclaimerHeading: 'Limitations and disclaimer',
+    disclaimer: generatedAt => [
+      'Every figure is computed by code from delayed public quotes. Nothing here is investment advice, an offer, or a personal recommendation.',
+      'BUY / HOLD / SELL are labels for a rule-set state, not instructions. SELL means flat in the backtest, never short.',
+      'Returns are pre-tax and exclude slippage and borrow costs. Taiwan equities and crypto are taxed differently, so after-tax ranking can reverse.',
+      'Historical hit rates are in-sample and do not predict future performance.',
+      `Generated ${generatedAt} from a ${reportRangeLabel(SIGNAL_RANGE, 'en')} daily sample. Verify against your broker before acting.`
+    ],
+    footerLeft: symbol => `Investment Platform · signal report · ${symbol}`,
+    footerRight: generatedAt => `Generated ${generatedAt} · Not investment advice`
+  },
+  zh: {
+    locale: 'zh-TW',
+    documentTitle: 'Investment Platform · 訊號報告',
+    generated: '產生時間',
+    pricesIn: '報價幣別',
+    signalState: '訊號狀態',
+    confidence: '信心度',
+    callout: '此狀態為均線結構、ADX、波動度與量能規則套用於公開報價後的機械式輸出，<strong>不構成投資建議、要約或個別推薦</strong>。採取任何行動前，請先閱讀最後一節的限制說明。',
+    snapshot: '市場快照',
+    lastPrice: '最新價',
+    change: '漲跌',
+    volume: '成交量',
+    lastBar: '最後一根 K 棒',
+    dataSource: '資料來源',
+    dataSourceValue: 'Yahoo Finance，報價延遲約 15 分鐘，價格已還原除權息與分割',
+    indicators: '影響狀態的指標',
+    priceScore: '價格結構分數',
+    movingAverages: 'MA20 / MA60 / MA120',
+    notEnoughData: '資料不足',
+    adx: 'ADX(14)',
+    atr: 'ATR(14) / 價格',
+    volatilityRank: '波動度分位',
+    volumeRatio: '量能比（20 日）',
+    levels: '參考價位',
+    entry: '參考進場',
+    stop: '停損（1.5 ATR 或前波支撐）',
+    target: '目標（2 ATR 或前波壓力）',
+    riskReward: '風險報酬比',
+    levelsNote: '價位由 ATR 與最近 20 根 K 棒的高低點計算，屬機械式風控參考，並非目標價。',
+    holdNote: '目前狀態為 HOLD：模型判定為盤整或訊號不一致，因此不提供進出場價位。',
+    bands: '價格機率區間',
+    horizon: '期間',
+    tradingDays: days => `${days} 個交易日`,
+    median: '中位數',
+    bandWidth: '80% 區間寬度',
+    noBands: '資料不足，無法估計區間。',
+    trackRecord: '此規則的歷史表現',
+    closedSignals: '已結束訊號',
+    hitRate: '命中率',
+    averagePL: '平均損益',
+    averageWinLoss: '平均獲利 / 虧損',
+    averageHolding: '平均持有天數',
+    noClosed: '樣本期間內沒有已結束的方向性訊號。',
+    trackNote: range => `以 ${range}的日線衡量，採「方向 × 價格變動」計算，並以下一次狀態翻轉為出場點。僅涵蓋價格結構訊號；因為沒有可回溯的歷史新聞，故不含新聞情緒。`,
+    disclaimerHeading: '限制與免責聲明',
+    disclaimer: generatedAt => [
+      '所有數字皆由程式依延遲的公開報價計算，不構成投資建議、要約或個別推薦。',
+      'BUY / HOLD / SELL 是規則狀態的標籤，不是指令。回測中的 SELL 代表空手，不做空。',
+      '報酬均為稅前，且未計入滑價與借券成本。台股與加密資產稅負結構不同，稅後排序可能與稅前相反。',
+      '歷史命中率為樣本內結果，不代表未來績效。',
+      `本報告產生於 ${generatedAt}，樣本為 ${reportRangeLabel(SIGNAL_RANGE, 'zh')}的日線。採取行動前請與您的券商核對。`
+    ],
+    footerLeft: symbol => `Investment Platform · 訊號報告 · ${symbol}`,
+    footerRight: generatedAt => `產生於 ${generatedAt} · 非投資建議`
+  }
+};
+
+const REPORT_UI_COPY = {
+  en: {
+    button: 'Generate PDF report',
+    preparing: 'Preparing…',
+    hintEnabled: 'The report covers the current signal, indicators, probability bands, and track record. Your browser opens its print dialog — choose "Save as PDF".',
+    hintDisabled: 'Search for an instrument to enable the report. It prints the current signal, indicators, probability bands, and track record as a PDF.',
+    languageLabel: 'Report language'
+  },
+  zh: {
+    button: '產生 PDF 報告',
+    preparing: '準備中…',
+    hintEnabled: '報告包含目前訊號、指標、機率區間與歷史表現。瀏覽器會開啟列印視窗，請選擇「另存為 PDF」。',
+    hintDisabled: '搜尋標的後即可產生報告。報告會將目前訊號、指標、機率區間與歷史表現輸出為 PDF。',
+    languageLabel: '報告語言'
+  }
+};
+
+function readReportLanguage() {
+  try {
+    const stored = localStorage.getItem(REPORT_LANGUAGE_KEY);
+    return REPORT_LANGUAGES.includes(stored) ? stored : 'en';
+  } catch (error) {
+    return 'en';
+  }
+}
+
+function setReportLanguage(language, { persist = true } = {}) {
+  const normalized = REPORT_LANGUAGES.includes(language) ? language : 'en';
+  state.reportLanguage = normalized;
+
+  reportLanguageButtons.forEach(button => {
+    const isActive = button.dataset.reportLang === normalized;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+
+  if (persist) {
+    try {
+      localStorage.setItem(REPORT_LANGUAGE_KEY, normalized);
+    } catch (error) {
+      // A blocked storage write only costs the preference, not the feature.
+    }
+  }
+
+  setReportState({});
+}
+
 function setReportState({ enabled = Boolean(state.selectedItem && state.latestSignal), preparing = false } = {}) {
   if (!reportButton) return;
+  const ui = REPORT_UI_COPY[state.reportLanguage] || REPORT_UI_COPY.en;
+
   reportButton.disabled = preparing || !enabled;
   reportButton.classList.toggle('is-loading', preparing);
   reportButton.setAttribute('aria-disabled', String(reportButton.disabled));
-  if (reportHint) {
-    reportHint.textContent = enabled
-      ? 'The report covers the current signal, indicators, probability bands, and track record. Your browser opens its print dialog — choose "Save as PDF".'
-      : 'Search for an instrument to enable the report. It prints the current signal, indicators, probability bands, and track record as a PDF.';
-  }
+  if (reportButtonLabel) reportButtonLabel.textContent = preparing ? ui.preparing : ui.button;
+  if (reportLanguageGroup) reportLanguageGroup.setAttribute('aria-label', ui.languageLabel);
+  const hint = enabled ? ui.hintEnabled : ui.hintDisabled;
+  if (reportHint) reportHint.textContent = hint;
+  reportButton.title = hint;
 }
 
 function reportRow(label, value) {
   return `<tr><th scope="row">${escapeHTML(label)}</th><td>${value}</td></tr>`;
 }
 
-function buildReportHTML() {
+function buildReportHTML(language = state.reportLanguage) {
   const item = state.selectedItem;
   const signal = state.latestSignal;
   const point = signal?.point;
   if (!item || !signal) return '';
 
+  const lang = REPORT_LANGUAGES.includes(language) ? language : 'en';
+  const t = REPORT_COPY[lang];
   const currency = currencyOf(item);
   const levels = referenceLevels(point);
   const stats = state.signalHistory?.stats;
   const forecast = state.forecast;
-  const generatedAt = new Date();
+  const generatedAt = formatDateTime(Date.now());
+  const stateLabel = lang === 'zh' ? (signal.zhLabel || signal.label) : signal.label;
+  const driverText = driver => (lang === 'zh' ? (driver.zh || driver.text) : driver.text);
 
   const bands = forecast?.available
     ? forecast.horizons.map(h => `
         <tr>
-          <td>${h.days} trading days</td>
+          <td>${escapeHTML(t.tradingDays(h.days))}</td>
           <td>${formatNumber(h.p10, 2)}</td>
           <td>${formatNumber(h.p50, 2)}</td>
           <td>${formatNumber(h.p90, 2)}</td>
           <td>${formatPercent(h.widthPercent)}</td>
         </tr>`).join('')
     : '';
+  const forecastNote = forecast?.available
+    ? (lang === 'zh' ? (forecast.zhMethod || forecast.method) : forecast.method)
+    : (lang === 'zh' ? (forecast?.zhReason || t.noBands) : (forecast?.reason || t.noBands));
 
   return `
-    <article class="report-page">
+    <article class="report-page" lang="${lang === 'zh' ? 'zh-Hant' : 'en'}">
       <header class="report-head">
         <div>
-          <p class="report-eyebrow">Investment Platform · Signal report</p>
+          <p class="report-eyebrow">${escapeHTML(t.documentTitle)}</p>
           <h1>${escapeHTML(item.name || item.symbol)} <span>${escapeHTML(item.symbol)}</span></h1>
           <p class="report-sub">
             ${escapeHTML(item.market || (item.type === 'crypto' ? 'Crypto' : ''))} ·
-            Generated ${escapeHTML(formatDateTime(generatedAt.getTime()))} ·
-            Prices in ${escapeHTML(currency)}
+            ${escapeHTML(t.generated)} ${escapeHTML(generatedAt)} ·
+            ${escapeHTML(t.pricesIn)} ${escapeHTML(currency)}
           </p>
         </div>
         <div class="report-state report-state-${escapeHTML(signal.tone)}">
-          <span>Signal state</span>
-          <strong>${escapeHTML(signal.label)}</strong>
-          <span>Confidence ${signal.confidence == null ? '--' : `${Math.round(signal.confidence)} / 100`}</span>
+          <span>${escapeHTML(t.signalState)}</span>
+          <strong>${escapeHTML(stateLabel)}</strong>
+          <span>${escapeHTML(t.confidence)} ${signal.confidence == null ? '--' : `${Math.round(signal.confidence)} / 100`}</span>
         </div>
       </header>
 
-      <p class="report-callout">
-        This state is the mechanical output of a moving-average, ADX, volatility, and volume rule set applied to public
-        quotes. It is <strong>not investment advice, not an offer, and not a personal recommendation</strong>. Read the
-        limitations on the last page before acting on anything here.
-      </p>
+      <p class="report-callout">${t.callout}</p>
 
       <section class="report-section">
-        <h2>Market snapshot</h2>
+        <h2>${escapeHTML(t.snapshot)}</h2>
         <table class="report-table">
           <tbody>
-            ${reportRow('Last price', `${escapeHTML(String(item.price ?? '--'))} ${escapeHTML(currency)}`)}
-            ${reportRow('Change', `${escapeHTML(String(item.change ?? '--'))} (${escapeHTML(String(item.percent ?? '--'))})`)}
-            ${reportRow('Volume', escapeHTML(String(item.volume ?? '--')))}
-            ${reportRow('Last bar', escapeHTML(String(item.lastBarLabel ?? '--')))}
-            ${reportRow('Data source', 'Yahoo Finance, quotes delayed ~15 min, adjusted for splits and dividends')}
+            ${reportRow(t.lastPrice, `${escapeHTML(String(item.price ?? '--'))} ${escapeHTML(currency)}`)}
+            ${reportRow(t.change, `${escapeHTML(String(item.change ?? '--'))} (${escapeHTML(String(item.percent ?? '--'))})`)}
+            ${reportRow(t.volume, escapeHTML(String(item.volume ?? '--')))}
+            ${reportRow(t.lastBar, escapeHTML(String(item.lastBarLabel ?? '--')))}
+            ${reportRow(t.dataSource, escapeHTML(t.dataSourceValue))}
           </tbody>
         </table>
       </section>
 
       <section class="report-section">
-        <h2>Indicators driving the state</h2>
+        <h2>${escapeHTML(t.indicators)}</h2>
         <table class="report-table">
           <tbody>
-            ${reportRow('Price structure score', `${signal.priceScore > 0 ? '+' : ''}${signal.priceScore}`)}
-            ${reportRow('MA20 / MA60 / MA120', `${formatNumber(point?.maFast, 2)} / ${formatNumber(point?.maMid, 2)} / ${point?.maSlow != null ? formatNumber(point.maSlow, 2) : 'Not enough data'}`)}
-            ${reportRow('ADX(14)', point?.adx != null ? formatNumber(point.adx, 1) : '--')}
-            ${reportRow('ATR(14) / price', formatPercent(point?.atrPercent, 2))}
-            ${reportRow('Volatility percentile', point?.volatilityRank != null ? formatPercent(point.volatilityRank, 0) : '--')}
-            ${reportRow('Volume ratio (20d)', point?.volumeRatio != null ? `${formatNumber(point.volumeRatio, 2)}x` : '--')}
+            ${reportRow(t.priceScore, `${signal.priceScore > 0 ? '+' : ''}${signal.priceScore}`)}
+            ${reportRow(t.movingAverages, `${formatNumber(point?.maFast, 2)} / ${formatNumber(point?.maMid, 2)} / ${point?.maSlow != null ? formatNumber(point.maSlow, 2) : escapeHTML(t.notEnoughData)}`)}
+            ${reportRow(t.adx, point?.adx != null ? formatNumber(point.adx, 1) : '--')}
+            ${reportRow(t.atr, formatPercent(point?.atrPercent, 2))}
+            ${reportRow(t.volatilityRank, point?.volatilityRank != null ? formatPercent(point.volatilityRank, 0) : '--')}
+            ${reportRow(t.volumeRatio, point?.volumeRatio != null ? `${formatNumber(point.volumeRatio, 2)}x` : '--')}
           </tbody>
         </table>
         <ul class="report-drivers">
-          ${signal.drivers.map(d => `<li class="driver-${d.weight > 0 ? 'positive' : d.weight < 0 ? 'negative' : 'neutral'}">${escapeHTML(d.text)}</li>`).join('')}
+          ${signal.drivers.map(d => `<li class="driver-${d.weight > 0 ? 'positive' : d.weight < 0 ? 'negative' : 'neutral'}">${escapeHTML(driverText(d))}</li>`).join('')}
         </ul>
       </section>
 
       <section class="report-section">
-        <h2>Reference levels</h2>
+        <h2>${escapeHTML(t.levels)}</h2>
         ${levels ? `
           <table class="report-table">
             <tbody>
-              ${reportRow('Reference entry', `${formatNumber(levels.entry, 2)} ${escapeHTML(currency)}`)}
-              ${reportRow('Stop (1.5 ATR or prior support)', `${formatNumber(levels.stop, 2)} ${escapeHTML(currency)}`)}
-              ${reportRow('Target (2 ATR or prior resistance)', `${formatNumber(levels.target, 2)} ${escapeHTML(currency)}`)}
-              ${reportRow('Risk / reward', `${formatNumber(Math.abs(levels.target - levels.entry) / Math.abs(levels.entry - levels.stop), 2)} : 1`)}
+              ${reportRow(t.entry, `${formatNumber(levels.entry, 2)} ${escapeHTML(currency)}`)}
+              ${reportRow(t.stop, `${formatNumber(levels.stop, 2)} ${escapeHTML(currency)}`)}
+              ${reportRow(t.target, `${formatNumber(levels.target, 2)} ${escapeHTML(currency)}`)}
+              ${reportRow(t.riskReward, `${formatNumber(Math.abs(levels.target - levels.entry) / Math.abs(levels.entry - levels.stop), 2)} : 1`)}
             </tbody>
           </table>
-          <p class="report-note">Levels are computed from ATR and the highs and lows of the last 20 bars. They are a mechanical risk-control reference, not price targets.</p>
-        ` : '<p class="report-note">The state is HOLD: the model reads the market as ranging or the signals disagree, so no entry or exit levels are produced.</p>'}
+          <p class="report-note">${escapeHTML(t.levelsNote)}</p>
+        ` : `<p class="report-note">${escapeHTML(t.holdNote)}</p>`}
       </section>
 
       <section class="report-section">
-        <h2>Price probability bands</h2>
+        <h2>${escapeHTML(t.bands)}</h2>
         ${bands ? `
           <table class="report-table report-table-grid">
-            <thead><tr><th>Horizon</th><th>P10</th><th>Median</th><th>P90</th><th>80% width</th></tr></thead>
+            <thead><tr><th>${escapeHTML(t.horizon)}</th><th>P10</th><th>${escapeHTML(t.median)}</th><th>P90</th><th>${escapeHTML(t.bandWidth)}</th></tr></thead>
             <tbody>${bands}</tbody>
           </table>
-          <p class="report-note">${escapeHTML(forecast.method)}</p>
-        ` : `<p class="report-note">${escapeHTML(forecast?.reason || 'Not enough data to estimate a range.')}</p>`}
+        ` : ''}
+        <p class="report-note">${escapeHTML(forecastNote)}</p>
       </section>
 
       <section class="report-section">
-        <h2>Track record of this rule set</h2>
+        <h2>${escapeHTML(t.trackRecord)}</h2>
         ${stats && stats.total ? `
           <table class="report-table report-table-grid">
-            <thead><tr><th>Closed signals</th><th>Hit rate</th><th>Average P/L</th><th>Average win / loss</th><th>Average holding days</th></tr></thead>
+            <thead><tr>
+              <th>${escapeHTML(t.closedSignals)}</th>
+              <th>${escapeHTML(t.hitRate)}</th>
+              <th>${escapeHTML(t.averagePL)}</th>
+              <th>${escapeHTML(t.averageWinLoss)}</th>
+              <th>${escapeHTML(t.averageHolding)}</th>
+            </tr></thead>
             <tbody>
               <tr>
                 <td>${stats.total}</td>
@@ -1474,26 +1668,20 @@ function buildReportHTML() {
               </tr>
             </tbody>
           </table>
-        ` : '<p class="report-note">No closed directional signals in the sample window.</p>'}
-        <p class="report-note">
-          Measured over ${escapeHTML(SIGNAL_RANGE)} of daily bars, direction x price change, exiting at the next state flip.
-          Price-structure signals only; news sentiment is excluded because no point-in-time news archive exists.
-        </p>
+        ` : `<p class="report-note">${escapeHTML(t.noClosed)}</p>`}
+        <p class="report-note">${escapeHTML(t.trackNote(reportRangeLabel(SIGNAL_RANGE, lang)))}</p>
       </section>
 
       <section class="report-section report-disclaimer">
-        <h2>Limitations and disclaimer</h2>
+        <h2>${escapeHTML(t.disclaimerHeading)}</h2>
         <ul>
-          <li>Every figure is computed by code from delayed public quotes. Nothing here is investment advice, an offer, or a personal recommendation.</li>
-          <li>BUY / HOLD / SELL are labels for a rule-set state, not instructions. SELL means flat in the backtest, never short.</li>
-          <li>Returns are pre-tax and exclude slippage and borrow costs. Taiwan equities and crypto are taxed differently, so after-tax ranking can reverse.</li>
-          <li>Historical hit rates are in-sample and do not predict future performance.</li>
-          <li>Generated ${escapeHTML(formatDateTime(generatedAt.getTime()))} from a ${escapeHTML(SIGNAL_RANGE)} daily sample. Verify against your broker before acting.</li>
+          ${t.disclaimer(generatedAt).map(line => `<li>${escapeHTML(line)}</li>`).join('')}
         </ul>
       </section>
+
       <footer class="report-footer">
-        <span>Investment Platform · signal report · ${escapeHTML(item.symbol)}</span>
-        <span>Generated ${escapeHTML(formatDateTime(generatedAt.getTime()))} · Not investment advice</span>
+        <span>${escapeHTML(t.footerLeft(item.symbol))}</span>
+        <span>${escapeHTML(t.footerRight(generatedAt))}</span>
       </footer>
     </article>
   `;
@@ -1504,6 +1692,7 @@ function generateReport() {
   setReportState({ preparing: true });
   reportSheet.innerHTML = buildReportHTML();
   reportSheet.setAttribute('aria-hidden', 'false');
+  reportSheet.lang = state.reportLanguage === 'zh' ? 'zh-Hant' : 'en';
 
   const done = () => {
     reportSheet.setAttribute('aria-hidden', 'true');
@@ -1840,6 +2029,9 @@ viewTabs.addEventListener('click', event => {
 
 refreshButton?.addEventListener('click', refreshCurrentMarketData);
 reportButton?.addEventListener('click', generateReport);
+reportLanguageButtons.forEach(button => {
+  button.addEventListener('click', () => setReportLanguage(button.dataset.reportLang));
+});
 
 themeButtons.forEach(button => button.addEventListener('click', () => setTheme(button.dataset.themeOption)));
 baseCurrencyButtons.forEach(button => button.addEventListener('click', () => setBaseCurrency(button.dataset.base)));
@@ -1927,6 +2119,7 @@ renderStrategySignal();
 renderSignalHistoryView();
 renderScreenerView();
 setRefreshState({ enabled: false });
+setReportLanguage(readReportLanguage(), { persist: false });
 setReportState({ enabled: false });
 loadHistory();
 loadMarketStatus();

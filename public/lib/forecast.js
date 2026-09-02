@@ -30,6 +30,7 @@
       return {
         available: false,
         reason: `Estimating a range needs at least ${MINIMUM_BARS} daily bars; only ${closes.length} are available.`,
+        zhReason: `估計區間至少需要 ${MINIMUM_BARS} 根日線，目前只有 ${closes.length} 根。`,
         horizons: []
       };
     }
@@ -43,7 +44,12 @@
     const lastClose = closes[closes.length - 1];
 
     if (!dailyVolatility) {
-      return { available: false, reason: 'Return volatility is zero, so no range can be estimated.', horizons: [] };
+      return {
+        available: false,
+        reason: 'Return volatility is zero, so no range can be estimated.',
+        zhReason: '報酬率波動為零，無法估計區間。',
+        horizons: []
+      };
     }
 
     const projected = horizons.map(days => {
@@ -73,7 +79,10 @@
       horizons: projected,
       method: `Random walk estimated from ${returns.length} daily returns: the median carries only shrunken drift (raw drift x ${DRIFT_SHRINK}), `
         + `and the band is the P10–P90 range from ${((dailyVolatility * Math.sqrt(TA.TRADING_DAYS_PER_YEAR)) * 100).toFixed(1)}% annualized volatility scaled by the square root of time.`
-        + ' This is a probability band, not a price target.'
+        + ' This is a probability band, not a price target.',
+      zhMethod: `以 ${returns.length} 筆日報酬估計的隨機漫步：中位數僅含收縮後的漂移（原始漂移 × ${DRIFT_SHRINK}），`
+        + `區間為年化波動 ${((dailyVolatility * Math.sqrt(TA.TRADING_DAYS_PER_YEAR)) * 100).toFixed(1)}% 依時間平方根外推的 P10–P90。`
+        + '此為機率區間，非目標價。'
     };
   }
 

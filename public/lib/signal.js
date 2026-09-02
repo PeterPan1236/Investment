@@ -155,53 +155,123 @@
       if (slow != null) {
         if (fast > mid && mid > slow) {
           score += 2;
-          drivers.push({ key: 'alignment', weight: 2, text: `MA${MA_FAST} > MA${MA_MID} > MA${MA_SLOW}: all three timeframes aligned bullish` });
+          drivers.push({
+            key: 'alignment',
+            weight: 2,
+            text: `MA${MA_FAST} > MA${MA_MID} > MA${MA_SLOW}: all three timeframes aligned bullish`,
+            zh: `MA${MA_FAST} > MA${MA_MID} > MA${MA_SLOW}：三個週期同向偏多`
+          });
         } else if (fast < mid && mid < slow) {
           score -= 2;
-          drivers.push({ key: 'alignment', weight: -2, text: `MA${MA_FAST} < MA${MA_MID} < MA${MA_SLOW}: all three timeframes aligned bearish` });
+          drivers.push({
+            key: 'alignment',
+            weight: -2,
+            text: `MA${MA_FAST} < MA${MA_MID} < MA${MA_SLOW}: all three timeframes aligned bearish`,
+            zh: `MA${MA_FAST} < MA${MA_MID} < MA${MA_SLOW}：三個週期同向偏空`
+          });
         } else {
-          drivers.push({ key: 'alignment', weight: 0, text: `MA${MA_FAST}/${MA_MID}/${MA_SLOW} are not aligned, so no trend is established` });
+          drivers.push({
+            key: 'alignment',
+            weight: 0,
+            text: `MA${MA_FAST}/${MA_MID}/${MA_SLOW} are not aligned, so no trend is established`,
+            zh: `MA${MA_FAST}/${MA_MID}/${MA_SLOW} 未同向，趨勢尚未確立`
+          });
         }
 
         if (bar.close > slow) {
           score += 1;
-          drivers.push({ key: 'longTerm', weight: 1, text: `Close is above MA${MA_SLOW} (long-term bullish structure)` });
+          drivers.push({
+            key: 'longTerm',
+            weight: 1,
+            text: `Close is above MA${MA_SLOW} (long-term bullish structure)`,
+            zh: `收盤價站上 MA${MA_SLOW}（長期多方結構）`
+          });
         } else {
           score -= 1;
-          drivers.push({ key: 'longTerm', weight: -1, text: `Close is below MA${MA_SLOW} (long-term bearish structure)` });
+          drivers.push({
+            key: 'longTerm',
+            weight: -1,
+            text: `Close is below MA${MA_SLOW} (long-term bearish structure)`,
+            zh: `收盤價跌破 MA${MA_SLOW}（長期空方結構）`
+          });
         }
       } else {
         if (fast > mid) {
           score += 1;
-          drivers.push({ key: 'alignment', weight: 1, text: `MA${MA_FAST} > MA${MA_MID} (fewer than ${MA_SLOW} days of history, so the long-term average is excluded)` });
+          drivers.push({
+            key: 'alignment',
+            weight: 1,
+            text: `MA${MA_FAST} > MA${MA_MID} (fewer than ${MA_SLOW} days of history, so the long-term average is excluded)`,
+            zh: `MA${MA_FAST} > MA${MA_MID}（歷史不足 ${MA_SLOW} 日，長期均線未納入）`
+          });
         } else if (fast < mid) {
           score -= 1;
-          drivers.push({ key: 'alignment', weight: -1, text: `MA${MA_FAST} < MA${MA_MID} (fewer than ${MA_SLOW} days of history, so the long-term average is excluded)` });
+          drivers.push({
+            key: 'alignment',
+            weight: -1,
+            text: `MA${MA_FAST} < MA${MA_MID} (fewer than ${MA_SLOW} days of history, so the long-term average is excluded)`,
+            zh: `MA${MA_FAST} < MA${MA_MID}（歷史不足 ${MA_SLOW} 日，長期均線未納入）`
+          });
         }
       }
 
       if (trendStrength != null) {
         if (trendStrength >= 25) {
           score += score >= 0 ? 1 : -1;
-          drivers.push({ key: 'adx', weight: 1, text: `ADX(${ADX_PERIOD}) = ${trendStrength.toFixed(1)}, trend strength is sufficient` });
+          drivers.push({
+            key: 'adx',
+            weight: 1,
+            text: `ADX(${ADX_PERIOD}) = ${trendStrength.toFixed(1)}, trend strength is sufficient`,
+            zh: `ADX(${ADX_PERIOD}) = ${trendStrength.toFixed(1)}，趨勢強度足夠`
+          });
         } else if (trendStrength < ADX_TREND_FLOOR) {
-          drivers.push({ key: 'adx', weight: 0, text: `ADX(${ADX_PERIOD}) = ${trendStrength.toFixed(1)} < ${ADX_TREND_FLOOR}, treated as ranging, directional signal suppressed` });
+          drivers.push({
+            key: 'adx',
+            weight: 0,
+            text: `ADX(${ADX_PERIOD}) = ${trendStrength.toFixed(1)} < ${ADX_TREND_FLOOR}, treated as ranging, directional signal suppressed`,
+            zh: `ADX(${ADX_PERIOD}) = ${trendStrength.toFixed(1)} < ${ADX_TREND_FLOOR}，判定為盤整，方向訊號被抑制`
+          });
         } else {
-          drivers.push({ key: 'adx', weight: 0, text: `ADX(${ADX_PERIOD}) = ${trendStrength.toFixed(1)}, trend strength is neutral` });
+          drivers.push({
+            key: 'adx',
+            weight: 0,
+            text: `ADX(${ADX_PERIOD}) = ${trendStrength.toFixed(1)}, trend strength is neutral`,
+            zh: `ADX(${ADX_PERIOD}) = ${trendStrength.toFixed(1)}，趨勢強度中性`
+          });
         }
       }
 
       if (volumeRatio != null) {
         if (volumeRatio >= 1.5 && score > 0) {
           score += 1;
-          drivers.push({ key: 'volume', weight: 1, text: `Volume is ${volumeRatio.toFixed(2)}x the ${VOLUME_PERIOD}-day average, confirming the advance` });
+          drivers.push({
+            key: 'volume',
+            weight: 1,
+            text: `Volume is ${volumeRatio.toFixed(2)}x the ${VOLUME_PERIOD}-day average, confirming the advance`,
+            zh: `成交量為 ${VOLUME_PERIOD} 日均量的 ${volumeRatio.toFixed(2)} 倍，量能確認上攻`
+          });
         } else if (volumeRatio >= 1.5 && score < 0) {
           score -= 1;
-          drivers.push({ key: 'volume', weight: -1, text: `Volume is ${volumeRatio.toFixed(2)}x the ${VOLUME_PERIOD}-day average, confirming selling pressure` });
+          drivers.push({
+            key: 'volume',
+            weight: -1,
+            text: `Volume is ${volumeRatio.toFixed(2)}x the ${VOLUME_PERIOD}-day average, confirming selling pressure`,
+            zh: `成交量為 ${VOLUME_PERIOD} 日均量的 ${volumeRatio.toFixed(2)} 倍，量能確認賣壓`
+          });
         } else if (volumeRatio < 0.7) {
-          drivers.push({ key: 'volume', weight: 0, text: `Volume is only ${volumeRatio.toFixed(2)}x the ${VOLUME_PERIOD}-day average, so there is no volume confirmation` });
+          drivers.push({
+            key: 'volume',
+            weight: 0,
+            text: `Volume is only ${volumeRatio.toFixed(2)}x the ${VOLUME_PERIOD}-day average, so there is no volume confirmation`,
+            zh: `成交量僅 ${VOLUME_PERIOD} 日均量的 ${volumeRatio.toFixed(2)} 倍，缺乏量能確認`
+          });
         } else {
-          drivers.push({ key: 'volume', weight: 0, text: `Volume is ${volumeRatio.toFixed(2)}x the ${VOLUME_PERIOD}-day average` });
+          drivers.push({
+            key: 'volume',
+            weight: 0,
+            text: `Volume is ${volumeRatio.toFixed(2)}x the ${VOLUME_PERIOD}-day average`,
+            zh: `成交量為 ${VOLUME_PERIOD} 日均量的 ${volumeRatio.toFixed(2)} 倍`
+          });
         }
       }
 
@@ -304,9 +374,9 @@
   }
 
   const STATE_PRESENTATION = {
-    BUY: { label: 'BUY / add', tone: 'buy' },
-    SELL: { label: 'SELL / trim', tone: 'sell' },
-    HOLD: { label: 'HOLD / wait', tone: 'hold' }
+    BUY: { label: 'BUY / add', zhLabel: 'BUY / 加碼', tone: 'buy' },
+    SELL: { label: 'SELL / trim', zhLabel: 'SELL / 減碼', tone: 'sell' },
+    HOLD: { label: 'HOLD / wait', zhLabel: 'HOLD / 觀望', tone: 'hold' }
   };
 
   /** Latest reading plus the news tilt, packaged for the UI. */
@@ -318,11 +388,17 @@
       return {
         state: 'HOLD',
         label: 'HOLD / not enough data',
+        zhLabel: 'HOLD / 資料不足',
         tone: 'hold',
         confidence: 0,
         priceScore: 0,
         newsSentiment,
-        drivers: [{ key: 'data', weight: 0, text: `Not enough history (at least ${series.minimumBars} daily bars required)` }],
+        drivers: [{
+          key: 'data',
+          weight: 0,
+          text: `Not enough history (at least ${series.minimumBars} daily bars required)`,
+          zh: `歷史資料不足（至少需要 ${series.minimumBars} 根日線）`
+        }],
         point: null
       };
     }
@@ -341,19 +417,24 @@
         weight: newsSentiment.score,
         text: `News sentiment: ${newsSentiment.counted} headlines matched this instrument (${newsSentiment.positiveCount} positive / ${newsSentiment.negativeCount} negative)`
           + `${newsSentiment.skipped ? `, plus ${newsSentiment.skipped} broad-market headlines not counted` : ''}`
-          + `${agreement < 0 ? '; it contradicts the price signal, so confidence is reduced' : agreement > 0 ? '; it agrees with the price signal, so confidence is raised' : ''}`
+          + `${agreement < 0 ? '; it contradicts the price signal, so confidence is reduced' : agreement > 0 ? '; it agrees with the price signal, so confidence is raised' : ''}`,
+        zh: `新聞情緒：${newsSentiment.counted} 則標題與此標的相關（${newsSentiment.positiveCount} 則正面 / ${newsSentiment.negativeCount} 則負面）`
+          + `${newsSentiment.skipped ? `，另有 ${newsSentiment.skipped} 則泛市場新聞未計入` : ''}`
+          + `${agreement < 0 ? '；與價格訊號相反，信心度下修' : agreement > 0 ? '；與價格訊號一致，信心度上修' : ''}`
       });
     } else {
       drivers.push({
         key: 'news',
         weight: 0,
-        text: `News sentiment: no headline explicitly mentions this instrument${newsSentiment.skipped ? ` (${newsSentiment.skipped} broad-market headlines not counted)` : ''}, so only price structure is used`
+        text: `News sentiment: no headline explicitly mentions this instrument${newsSentiment.skipped ? ` (${newsSentiment.skipped} broad-market headlines not counted)` : ''}, so only price structure is used`,
+        zh: `新聞情緒：查無明確提及此標的的標題${newsSentiment.skipped ? `（${newsSentiment.skipped} 則泛市場新聞未計入）` : ''}，僅採用價格結構`
       });
     }
 
     return {
       state: point.state,
       label: presentation.label,
+      zhLabel: presentation.zhLabel,
       tone: presentation.tone,
       confidence,
       priceConfidence: point.confidence,

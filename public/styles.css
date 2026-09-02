@@ -2208,3 +2208,56 @@ body.modal-open {
     min-width: 0;
   }
 }
+
+/* ── Report controls & CJK print support ─────────────────── */
+
+.report-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-language button {
+  min-width: 46px;
+  min-height: 38px;
+}
+
+.report-button:disabled .report-button-icon {
+  opacity: 0.6;
+}
+
+@media (max-width: 720px) {
+  /* The action and its language switch stay on one row; the button takes the
+     leftover width so the tap target never shrinks below the switch. */
+  .report-controls {
+    width: 100%;
+  }
+
+  .report-controls .report-button {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+@media print {
+  /* A Traditional Chinese report needs a CJK face and a little more leading;
+     the Latin faces come first so an English report is unchanged. */
+  .report-sheet {
+    font-family: "Helvetica Neue", Arial, "Microsoft JhengHei", "PingFang TC",
+      "Noto Sans TC", "Heiti TC", sans-serif;
+  }
+
+  .report-page[lang="zh-Hant"] {
+    line-height: 1.6;
+  }
+
+  .report-page[lang="zh-Hant"] .report-table th,
+  .report-page[lang="zh-Hant"] .report-table td {
+    padding: 5pt 6pt;
+  }
+
+  .report-page[lang="zh-Hant"] .report-drivers,
+  .report-page[lang="zh-Hant"] .report-disclaimer ul {
+    line-height: 1.65;
+  }
+}

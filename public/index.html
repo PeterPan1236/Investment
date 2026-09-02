@@ -103,15 +103,21 @@
           </div>
           <div class="refresh-controls flex flex-col md:flex-row items-center gap-2.5" aria-live="polite">
             <button id="refreshButton" class="refresh-button w-full md:w-auto" type="button" disabled>Refresh</button>
-            <button id="generateReportBtn" class="report-button w-full md:w-auto" type="button" disabled aria-describedby="reportHint">
-              <span class="report-button-icon" aria-hidden="true">
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M11.5 2.5H6a1.5 1.5 0 0 0-1.5 1.5v12A1.5 1.5 0 0 0 6 17.5h8a1.5 1.5 0 0 0 1.5-1.5V6.5z" />
-                  <path d="M11.5 2.5v4h4M7.5 11h5M7.5 14h3" />
-                </svg>
-              </span>
-              Generate PDF report
-            </button>
+            <div class="report-controls">
+              <button id="generateReportBtn" class="report-button" type="button" disabled aria-describedby="reportHint">
+                <span class="report-button-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11.5 2.5H6a1.5 1.5 0 0 0-1.5 1.5v12A1.5 1.5 0 0 0 6 17.5h8a1.5 1.5 0 0 0 1.5-1.5V6.5z" />
+                    <path d="M11.5 2.5v4h4M7.5 11h5M7.5 14h3" />
+                  </svg>
+                </span>
+                <span id="reportButtonLabel">Generate PDF report</span>
+              </button>
+              <div class="segmented report-language" id="reportLanguageToggle" aria-label="Report language">
+                <button type="button" data-report-lang="en" class="active" aria-pressed="true">EN</button>
+                <button type="button" data-report-lang="zh" aria-pressed="false" lang="zh-Hant">繁中</button>
+              </div>
+            </div>
             <span id="refreshStatus" class="refresh-status">Select an instrument to refresh live data.</span>
           </div>
           <p id="reportHint" class="report-hint">Search for an instrument to enable the report. It prints the current signal, indicators, probability bands, and track record as a PDF.</p>
