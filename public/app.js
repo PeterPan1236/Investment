@@ -417,7 +417,7 @@ function movingAverageSeries(values, period) {
 
 /**
  * A 1-month window holds ~22 bars, so an MA computed from the visible window
- * alone leaves MA60 and MA200 empty. The signal engine already loads two years
+ * alone leaves MA60 and MA120 empty. The signal engine already loads two years
  * of daily bars, so those are used as warm-up and only the visible tail is drawn.
  */
 function movingAverageOverlays(displayData, closeValues) {
@@ -435,7 +435,7 @@ function movingAverageOverlays(displayData, closeValues) {
   }
 
   // The averages run over bars, not days, so only the daily chart may call them
-  // MA20/MA60/MA200 without qualification.
+  // MA20/MA60/MA120 without qualification.
   const unit = state.currentInterval === SIGNAL_INTERVAL ? ''
     : state.currentInterval === '1mo' ? ' (months)'
       : ' (bars)';
@@ -443,7 +443,7 @@ function movingAverageOverlays(displayData, closeValues) {
   return [
     { name: `MA20${unit}`, period: 20, color: 'ma5' },
     { name: `MA60${unit}`, period: 60, color: 'ma10' },
-    { name: `MA200${unit}`, period: 200, color: 'ma20' }
+    { name: `MA120${unit}`, period: 120, color: 'ma20' }
   ]
     .map(ma => ({ ...ma, data: movingAverageSeries(closes, ma.period).slice(offset) }))
     // An MA with no plottable point in the window is a legend entry pointing at
@@ -728,7 +728,7 @@ function renderStrategySignal() {
       <div class="strategy-header">
         <div>
           <h2>Signal engine</h2>
-          <p>Pick an instrument to compute a signal from 20/60/200-day moving-average structure, ADX trend strength, volatility percentile, and volume.</p>
+          <p>Pick an instrument to compute a signal from 20/60/120-day moving-average structure, ADX trend strength, volatility percentile, and volume.</p>
         </div>
       </div>
     `;
@@ -888,7 +888,7 @@ function showTechnicalModal() {
       <div class="analysis-metrics grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-2.5">
         <div class="metric-card"><div class="metric-label">Close (adjusted)</div><div class="metric-value">${formatNumber(point.close, 2)}</div></div>
         <div class="metric-card"><div class="metric-label">MA20 / MA60</div><div class="metric-value" style="font-size:1rem;">${formatNumber(point.maFast, 2)} / ${formatNumber(point.maMid, 2)}</div></div>
-        <div class="metric-card"><div class="metric-label">MA200</div><div class="metric-value">${point.maSlow != null ? formatNumber(point.maSlow, 2) : 'Not enough data'}</div></div>
+        <div class="metric-card"><div class="metric-label">MA120</div><div class="metric-value">${point.maSlow != null ? formatNumber(point.maSlow, 2) : 'Not enough data'}</div></div>
         <div class="metric-card"><div class="metric-label">ADX(14)</div><div class="metric-value">${point.adx != null ? formatNumber(point.adx, 1) : '--'}</div></div>
         <div class="metric-card"><div class="metric-label">RSI(14)</div><div class="metric-value ${rsi > 70 ? 'negative' : rsi < 30 ? 'positive' : ''}">${formatNumber(rsi, 1)}</div></div>
         <div class="metric-card"><div class="metric-label">ATR(14) / price</div><div class="metric-value">${formatPercent(point.atrPercent, 2)}</div></div>
@@ -1238,7 +1238,7 @@ function screenerCardHTML(row) {
         <div><span>Current price</span><strong>${row.lastClose != null ? `${formatNumber(row.lastClose, 2)} ${currency}` : '--'}</strong></div>
         <div><span>Cumulative return</span><strong class="${toneClass(row.sinceReturn)}">${row.sinceReturn == null ? 'Set a price at idea first' : formatSignedPercent(row.sinceReturn)}</strong></div>
         <div><span>Annualized volatility</span><strong>${formatPercent(row.volatility)}</strong></div>
-        <div><span>vs. MA200</span><strong>${row.aboveSlowMa == null ? '--' : row.aboveSlowMa ? 'Above' : 'Below'}</strong></div>
+        <div><span>vs. MA120</span><strong>${row.aboveSlowMa == null ? '--' : row.aboveSlowMa ? 'Above' : 'Below'}</strong></div>
       </div>
 
       <div class="screen-exit">
@@ -1421,7 +1421,7 @@ function buildReportHTML() {
         <table class="report-table">
           <tbody>
             ${reportRow('Price structure score', `${signal.priceScore > 0 ? '+' : ''}${signal.priceScore}`)}
-            ${reportRow('MA20 / MA60 / MA200', `${formatNumber(point?.maFast, 2)} / ${formatNumber(point?.maMid, 2)} / ${point?.maSlow != null ? formatNumber(point.maSlow, 2) : 'Not enough data'}`)}
+            ${reportRow('MA20 / MA60 / MA120', `${formatNumber(point?.maFast, 2)} / ${formatNumber(point?.maMid, 2)} / ${point?.maSlow != null ? formatNumber(point.maSlow, 2) : 'Not enough data'}`)}
             ${reportRow('ADX(14)', point?.adx != null ? formatNumber(point.adx, 1) : '--')}
             ${reportRow('ATR(14) / price', formatPercent(point?.atrPercent, 2))}
             ${reportRow('Volatility percentile', point?.volatilityRank != null ? formatPercent(point.volatilityRank, 0) : '--')}
@@ -1542,7 +1542,7 @@ function showMethodologyModal() {
       <h3>How the signal is computed</h3>
       <ul class="doc-list">
         <li>Data: Yahoo Finance daily bars, adjusted close for splits and dividends; quotes delayed about 15 minutes.</li>
-        <li>Trend structure: MA20 / MA60 / MA200 alignment scores ±2 when all three point the same way, plus ±1 for close versus MA200.</li>
+        <li>Trend structure: MA20 / MA60 / MA120 alignment scores ±2 when all three point the same way, plus ±1 for close versus MA120.</li>
         <li>Trend strength: ADX(14) ≥ 25 adds 1 point; ADX(14) &lt; ${SignalEngine.ADX_TREND_FLOOR} marks the market as ranging and every directional signal is downgraded to HOLD.</li>
         <li>Volume: when volume is at least 1.5x the 20-day average, ±1 point is added in the current direction.</li>
         <li>State thresholds: score ≥ +3 is BUY, ≤ −3 is SELL, anything else is HOLD.</li>

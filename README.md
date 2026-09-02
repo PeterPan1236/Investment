@@ -4,7 +4,7 @@ Simple Stock & Crypto analysis web UI for Taiwan-listed equities (TWD) and major
 
 Features
 - Search stocks and crypto (fuzzy, English name / Chinese alias / ticker)
-- K-line (candlestick) charts with volume, MA20/60/200 and past signal flips marked on the price. Daily-interval averages are warmed up from the two-year signal series, so a one-month window still draws a full MA200; an average with no plottable point in the window is dropped rather than shown as an empty legend entry
+- K-line (candlestick) charts with volume, MA20/60/120 and past signal flips marked on the price. Daily-interval averages are warmed up from the two-year signal series, so a one-month window still draws a full MA120; an average with no plottable point in the window is dropped rather than shown as an empty legend entry
 - Time interval toggles (5m / 30m / 1D / 1M), TWD/USD base-currency toggle with FX-adjusted values
 - Per-asset news from Yahoo's symbol-scoped headline feed, with relevance mapping and sentiment tags (unmapped market-wire stories are excluded from scoring)
 - Signal engine: multi-horizon MA alignment, ADX trend-strength gate, ATR volatility regime, volume confirmation, numeric 0-100 confidence

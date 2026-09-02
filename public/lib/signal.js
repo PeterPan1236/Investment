@@ -1,7 +1,7 @@
 /**
  * Signal engine.
  *
- * Directional calls require agreement across three horizons (20 / 60 / 200 day)
+ * Directional calls require agreement across three horizons (20 / 60 / 120 day)
  * and are gated by ADX so the model stays flat in ranging markets instead of
  * whipsawing on a single short moving-average crossover. Confidence is a
  * computed 0-100 number, not a hand-assigned label.
@@ -14,7 +14,7 @@
 (function (global) {
   const MA_FAST = 20;
   const MA_MID = 60;
-  const MA_SLOW = 200;
+  const MA_SLOW = 120;
   const ADX_PERIOD = 14;
   const ADX_TREND_FLOOR = 20;
   const ATR_PERIOD = 14;
