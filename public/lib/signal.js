@@ -21,6 +21,16 @@
   const VOLUME_PERIOD = 20;
   const MAX_PRICE_SCORE = 6;
   const ENTRY_SIGNAL_STATES = { BUY: 1, HOLD: 0, SELL: -1 };
+  // A backtest (long the top decile / short the bottom decile of trailing
+  // 20-day return across the stock universe, rebalanced every 5 trading days)
+  // found this cross-sectional momentum factor was the least-bad candidate
+  // among several tried, though it did not clear a formal significance bar
+  // (Deflated Sharpe Ratio ~42%). This BUY gate is a best-effort, single-stock
+  // approximation of that finding: it cannot short or rebalance a portfolio,
+  // so it only checks whether THIS stock's own trailing momentum ranks in the
+  // top decile of the site's ~62-stock watchlist - a much smaller and noisier
+  // universe than the 1097-stock backtest.
+  const MOMENTUM_PERCENTILE_THRESHOLD = 0.9;
 
   const POSITIVE_TERMS = [
     'growth', 'profit', 'beat', 'beats', 'upgrade', 'bullish', 'record', 'revenue',
@@ -111,7 +121,11 @@
    * available up to that bar, so the same output can drive the chart overlay,
    * the hit-rate table and the backtester.
    */
-  function computeSignalSeries(bars = []) {
+  function computeSignalSeries(bars = [], options = {}) {
+    const {
+      momentumPercentileByTimestamp = null,
+      momentumPercentileThreshold = MOMENTUM_PERCENTILE_THRESHOLD
+    } = options;
     const usable = bars
       .filter(bar => Number.isFinite(Number(bar.adjClose ?? bar.close)))
       .map(bar => ({
@@ -275,7 +289,37 @@
         }
       }
 
-      const state = stateFromScore(score, trendStrength);
+      let state = stateFromScore(score, trendStrength);
+
+      // Best-effort, single-stock approximation of the cross-sectional momentum
+      // factor found in backtesting: only confirm BUY if this stock's own
+      // trailing momentum also ranks near the top of the watchlist as of THIS
+      // bar (walk-forward - the caller supplies a percentile per timestamp, not
+      // a single "current" value, so historical bars aren't scored with
+      // hindsight). Missing percentile data degrades gracefully to the
+      // unfiltered MA/ADX judgement rather than suppressing the signal.
+      const momentumPercentile = momentumPercentileByTimestamp
+        ? momentumPercentileByTimestamp.get(bar.timestamp) ?? null
+        : null;
+      if (state === 'BUY' && momentumPercentileByTimestamp && momentumPercentile != null) {
+        if (momentumPercentile < momentumPercentileThreshold) {
+          state = 'HOLD';
+          drivers.push({
+            key: 'momentumRank',
+            weight: 0,
+            text: `Trailing 20-day return ranks in the ${Math.round(momentumPercentile * 100)}th percentile of the watchlist, below the ${Math.round(momentumPercentileThreshold * 100)}th-percentile bar required to confirm BUY`,
+            zh: `近20日報酬在觀察名單中排在第 ${Math.round(momentumPercentile * 100)} 百分位，未達確認BUY所需的第 ${Math.round(momentumPercentileThreshold * 100)} 百分位門檻`
+          });
+        } else {
+          drivers.push({
+            key: 'momentumRank',
+            weight: 1,
+            text: `Trailing 20-day return ranks in the ${Math.round(momentumPercentile * 100)}th percentile of the watchlist, confirming relative strength`,
+            zh: `近20日報酬在觀察名單中排在第 ${Math.round(momentumPercentile * 100)} 百分位，確認相對強勢`
+          });
+        }
+      }
+
       const volatilityRank = atrPercent == null
         ? null
         : TA.percentileRank(atrPercentSeries.slice(0, index + 1).filter(value => value != null), atrPercent);
@@ -294,6 +338,7 @@
         index,
         state,
         score,
+        momentumPercentile,
         confidence: TA.clamp(confidence, 0, 100),
         ready: true,
         drivers,

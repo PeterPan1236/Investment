@@ -114,6 +114,65 @@ test('backtest refuses a window with too few bars instead of inventing one', () 
   assert.match(result.reason, /at least 40 usable daily bars/);
 });
 
+test('computeSignalSeries without options behaves exactly as before the momentum gate was added', () => {
+  const { SignalEngine } = loadLibs(['indicators.js', 'signal.js']);
+  const bars = barsFrom(walk(150, 1, 0.01, 0.01));
+  const withoutOptions = SignalEngine.computeSignalSeries(bars);
+  const withEmptyOptions = SignalEngine.computeSignalSeries(bars, {});
+  assert.deepStrictEqual(
+    withoutOptions.points.map(p => p.state),
+    withEmptyOptions.points.map(p => p.state),
+  );
+});
+
+test('momentum gate downgrades BUY to HOLD when the stock ranks below the percentile threshold', () => {
+  const { SignalEngine } = loadLibs(['indicators.js', 'signal.js']);
+  const bars = barsFrom(walk(150, 1, 0.01, 0.01));
+  const baseline = SignalEngine.computeSignalSeries(bars);
+  const buyPoint = baseline.points.find(p => p.state === 'BUY');
+  assert.ok(buyPoint, 'a strong sustained uptrend should produce at least one BUY bar');
+
+  const lowPercentile = new Map([[buyPoint.timestamp, 0.5]]);
+  const gated = SignalEngine.computeSignalSeries(bars, {
+    momentumPercentileByTimestamp: lowPercentile,
+    momentumPercentileThreshold: 0.9,
+  });
+  const gatedPoint = gated.points.find(p => p.timestamp === buyPoint.timestamp);
+  assert.strictEqual(gatedPoint.state, 'HOLD');
+  assert.ok(gatedPoint.drivers.some(d => d.key === 'momentumRank'), 'should explain why BUY was suppressed');
+});
+
+test('momentum gate leaves BUY intact when the stock ranks at or above the percentile threshold', () => {
+  const { SignalEngine } = loadLibs(['indicators.js', 'signal.js']);
+  const bars = barsFrom(walk(150, 1, 0.01, 0.01));
+  const baseline = SignalEngine.computeSignalSeries(bars);
+  const buyPoint = baseline.points.find(p => p.state === 'BUY');
+  assert.ok(buyPoint);
+
+  const highPercentile = new Map([[buyPoint.timestamp, 0.95]]);
+  const gated = SignalEngine.computeSignalSeries(bars, {
+    momentumPercentileByTimestamp: highPercentile,
+    momentumPercentileThreshold: 0.9,
+  });
+  const gatedPoint = gated.points.find(p => p.timestamp === buyPoint.timestamp);
+  assert.strictEqual(gatedPoint.state, 'BUY');
+  assert.ok(gatedPoint.drivers.some(d => d.key === 'momentumRank' && d.weight > 0));
+});
+
+test('momentum gate degrades gracefully to the unfiltered signal when percentile data is missing for a bar', () => {
+  const { SignalEngine } = loadLibs(['indicators.js', 'signal.js']);
+  const bars = barsFrom(walk(150, 1, 0.01, 0.01));
+  const baseline = SignalEngine.computeSignalSeries(bars);
+  const buyPoint = baseline.points.find(p => p.state === 'BUY');
+  assert.ok(buyPoint);
+
+  // Map provided but has no entry for this bar's timestamp.
+  const sparsePercentile = new Map([[buyPoint.timestamp + 999999, 0.95]]);
+  const gated = SignalEngine.computeSignalSeries(bars, { momentumPercentileByTimestamp: sparsePercentile });
+  const gatedPoint = gated.points.find(p => p.timestamp === buyPoint.timestamp);
+  assert.strictEqual(gatedPoint.state, 'BUY', 'missing percentile data should not suppress the original signal');
+});
+
 test('moving averages stay null until the period is filled', () => {
   const { TA } = loadLibs(['indicators.js']);
   const sma = TA.sma([1, 2, 3, 4, 5], 3);

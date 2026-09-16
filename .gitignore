@@ -23,6 +23,9 @@ node_modules/
 dist/
 build/
 
+# Fetched institutional-flow/price cache (regenerable via scripts/institutional-backtest)
+/data/institutional/
+
 # Environment files
 .env
 .env.local
@@ -32,3 +35,4 @@ build/
 
 # VS Code
 .vscode/
+/data/platform-signal/

@@ -8,7 +8,7 @@
     "deploy": "npm run stamp && wrangler pages deploy public --project-name investment-webui --branch master",
     "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o public/vendor/tailwind.css --minify",
     "test": "npm run test:unit && npm run test:regression",
-    "test:unit": "node --test test/unit.test.js",
+    "test:unit": "node --test test/unit.test.js test/institutional-signal.test.js test/platform-signal.test.js test/stop-lib.test.js test/mean-reversion-lib.test.js test/market-regime-lib.test.js test/dsr-lib.test.js test/pbo-lib.test.js test/cross-sectional-lib.test.js",
     "test:regression": "node test/search-modal-harness.js"
   },
   "dependencies": {

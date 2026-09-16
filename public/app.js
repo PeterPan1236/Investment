@@ -54,6 +54,7 @@ const state = {
   backtestChartInstance: null,
   currentChartData: [],
   signalBars: [],
+  momentumPercentileSeries: null,
   signalSeries: null,
   signalHistory: null,
   latestSignal: null,
@@ -1821,7 +1822,9 @@ function setRefreshState({ loading = false, message = '', enabled = Boolean(stat
 }
 
 function recomputeSignal() {
-  state.signalSeries = SignalEngine.computeSignalSeries(state.signalBars);
+  state.signalSeries = SignalEngine.computeSignalSeries(state.signalBars, {
+    momentumPercentileByTimestamp: state.momentumPercentileSeries
+  });
   state.signalHistory = SignalEngine.signalHistory(state.signalSeries.points);
   state.latestSignal = SignalEngine.latestSignal(state.signalSeries, state.currentNews, state.selectedItem);
   state.forecast = Forecast.computeForecastFan(state.signalBars);
@@ -1835,11 +1838,12 @@ async function loadMarketData(symbol) {
   const interval = state.currentInterval;
   const range = state.currentRange;
 
-  const [displayResult, signalResult, newsResult, profileResult] = await Promise.allSettled([
+  const [displayResult, signalResult, newsResult, profileResult, momentumResult] = await Promise.allSettled([
     fetchJson(`/api/chart?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`),
     fetchJson(`/api/chart?symbol=${encodeURIComponent(symbol)}&interval=${SIGNAL_INTERVAL}&range=${SIGNAL_RANGE}`),
     fetchJson(`/api/news?symbol=${encodeURIComponent(symbol)}`),
-    fetchJson(`/api/profile?symbol=${encodeURIComponent(symbol)}`).catch(() => null)
+    fetchJson(`/api/profile?symbol=${encodeURIComponent(symbol)}`).catch(() => null),
+    fetchJson(`/api/momentum-percentile?symbol=${encodeURIComponent(symbol)}&range=${SIGNAL_RANGE}`).catch(() => null)
   ]);
 
   if (requestId !== state.marketDataRequestId || state.selectedItem?.symbol !== symbol) return false;
@@ -1847,6 +1851,13 @@ async function loadMarketData(symbol) {
   const displayData = displayResult.status === 'fulfilled' ? displayResult.value?.data || [] : [];
   state.currentNews = newsResult.status === 'fulfilled' && Array.isArray(newsResult.value) ? newsResult.value : [];
   state.signalBars = signalResult.status === 'fulfilled' ? signalResult.value?.data || [] : displayData;
+
+  // Best-effort: a failed/missing momentum-percentile fetch just falls back to
+  // the unfiltered MA/ADX signal (see the graceful-degradation note in signal.js).
+  const momentumPercentiles = momentumResult.status === 'fulfilled' ? momentumResult.value?.percentiles : null;
+  state.momentumPercentileSeries = Array.isArray(momentumPercentiles)
+    ? new Map(momentumPercentiles.map(p => [p.timestamp, p.percentile]))
+    : null;
 
   recomputeSignal();
 
@@ -1933,6 +1944,7 @@ function selectItem(item) {
   state.selectedItem = { ...item, website: null };
   state.currentWebsite = null;
   state.signalBars = [];
+  state.momentumPercentileSeries = null;
   state.signalSeries = null;
   state.signalHistory = null;
   state.latestSignal = null;
